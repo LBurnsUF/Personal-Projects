@@ -15,7 +15,8 @@
 
 //------------------------------------ENUMs----------------------------------------
 typedef enum {
-	AD,
+	ATTACK,
+	DECAY,
 	SUSTAIN,
 	RELEASE,
 	OFF
@@ -32,7 +33,7 @@ typedef struct {
 	uint8_t note_id;
 	uint32_t phase;			// phase accumulator
 	uint32_t step;			// phase increment per sample
-	uint16_t env_idx;		// index into gain envelope
+	uint16_t gain;			// current envelope gain
 	uint8_t seen_this_block;
 	uint8_t hold_ticks;
 }Voice;
@@ -53,7 +54,6 @@ typedef struct {
 #define PHASE_BITS	32u // Phase accumulator width
 #define LUT_BITS	8u // Number of bits in our sampled wave LUT
 #define PHASE_SHIFT (PHASE_BITS - LUT_BITS) // How far we will shift the phase to the right to get the current sample
-#define GAIN_FRAC	10u
 #define HOLD_TICKS	6u // number of blocks to hold a note for
 #define NOTE_LUT_LEN 88u
 
@@ -61,26 +61,27 @@ typedef struct {
 #define BLOCK_SIZE	NPTS // Number of samples prefilled/half the size of the DMA ping-pong buffer.
 #define KEYLEN		(N_VOICES * 3u)
 
-// ADSR
-#define AD_LEN		(NPTS >> 2) // length of gain[AD][], generally a few milliseconds
-#define ATTACK_LEN	(AD_LEN >> 2) //
-#define DECAY_LEN	(AD_LEN - ATTACK_LEN)
-#define REL_LEN		(NPTS) // length of gain[REL][], generally much longer than attack/decay
+// Effective time = (gain delta) / (rate * FS).
+#define GAIN_FRAC		4u
+#define PEAK_GAIN		2047u
+#define PEAK_GAIN_FP	(PEAK_GAIN << GAIN_FRAC) // 32752
+#define SUSTAIN_GAIN	1500u
+#define SUSTAIN_GAIN_FP	(SUSTAIN_GAIN << GAIN_FRAC) // 24000
+#define N_RATE_PRESETS	7u
+
+// LFO vibrato
+#define LFO_FREQ	5u
+#define LFO_STEP	((uint32_t)(((uint64_t)LFO_FREQ * BLOCK_SIZE << PHASE_BITS) / FS_REAL))
 
 // Mixing
 #define DAC_OFFSET 2048u
 #define MIX_SHIFT  0u
-#define SUSTAIN_INIT 1500u
-#define ALPHA_NUM 78u
-#define ALPHA_DEN 80u
 
 #define DIV_APPROX_SHIFT		8u
 #define RECIP_DIV(D)			((int32_t)(((1u << DIV_APPROX_SHIFT) + (D)/2u) / (D)))
 #define DIV_APPROX_INT32(x, D)	((int32_t)(((int32_t)(x) * RECIP_DIV(D)) >> DIV_APPROX_SHIFT))
 #define DIV_APPROX_UINT32(x, D)	((uint32_t)(((uint32_t)(x) * RECIP_DIV(D)) >> DIV_APPROX_SHIFT))
 
-#define LEVEL_INIT				((uint32_t)SUSTAIN_INIT << 8)
-#define ALPHA_MUL				((uint32_t)((ALPHA_NUM * (1u << DIV_APPROX_SHIFT) + ALPHA_DEN/2u) / ALPHA_DEN))
 
 // ------- Drawing -------
 // DAC to rows
@@ -106,7 +107,7 @@ typedef struct {
 
 // stepping through rows, 2 characters for EOL
 #define SCOPE_STRIDE (SCOPE_COLS + 2u)
-#define SCOPE_ESC_LEN 3u
+#define SCOPE_ESC_LEN 6u // ESC[J (clear below) + ESC[H (cursor home)
 #define SCOPE_FRAME_CHAR_BYTES (SCOPE_ROWS * SCOPE_STRIDE)
 #define SCOPE_FRAME_BYTES      (SCOPE_FRAME_CHAR_BYTES + SCOPE_ESC_LEN)
 
@@ -162,10 +163,16 @@ extern uint8_t keybuff[KEYLEN]; // number of key events to buffer
 
 extern const int16_t recip_table[MAX_VOICES + 1u];
 
-// gain constants
-extern const uint16_t peak_gain;
-extern uint16_t ad_lut[AD_LEN]; // attack/decay envelope
-extern uint16_t rel_lut[REL_LEN]; // release array
+
+// ADSR rate presets — indexed by [0=attack, 1=decay, 2=release]
+extern const uint8_t  adsr_rates[3][N_RATE_PRESETS];
+extern const uint16_t adsr_ms[3][N_RATE_PRESETS];
+extern uint8_t adsr_idx[3];
+extern uint8_t adsr_rate[3];
+
+// LFO state
+extern uint32_t lfo_phase;
+extern volatile uint8_t vibrato_on;
 
 // visualizer flags
 extern volatile uint8_t scope_busy;

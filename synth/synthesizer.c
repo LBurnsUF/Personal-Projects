@@ -21,14 +21,12 @@
 //------------------------------------local prototypes----------------------------------------
 int8_t ascii_to_note_id(uint8_t ch);
 inline void init_freq_lut(void);
-void init_envelopes(void);
 inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain);
 
 int main(void)
 {
 	init_clk();
 	init_dac();
-	init_envelopes();
 	init_freq_lut();
 	init_frame();
 
@@ -38,7 +36,7 @@ int main(void)
 		voices[v].note_id = 0;
 		voices[v].phase = 0;
 		voices[v].step = 0;
-		voices[v].env_idx = 0;
+		voices[v].gain = 0;
 		voices[v].seen_this_block = 0;
 		voices[v].hold_ticks = 0;
 	}
@@ -127,7 +125,17 @@ ISR(DMA_CH0_vect){
 //------------------------------------helpers------------------------------------------
 int8_t ascii_to_note_id(uint8_t ch){
 	if (ch == 's') {
-		cwave ^= 1; // toggle wave type on switch
+		cwave ^= 1; // toggle wave type
+		return -1;
+	}
+	if (ch == 'a') {
+		vibrato_on ^= 1; // toggle vibrato
+		return -1;
+	}
+	if (ch >= '1' && ch <= '3') {
+		uint8_t p = ch - '1'; // 0=attack, 1=decay, 2=release
+		adsr_idx[p] = (adsr_idx[p] + 1) % N_RATE_PRESETS;
+		adsr_rate[p] = pgm_read_byte(&adsr_rates[p][adsr_idx[p]]);
 		return -1;
 	}
 	 uint8_t idx;
@@ -186,8 +194,7 @@ void update_voices_from_keybuff(void){
 				v->seen_this_block = 1;
 				v->hold_ticks = HOLD_TICKS;
 				if (v->env_state == RELEASE) {
-					v->env_state = AD;
-					v->env_idx   = 0;
+					v->env_state = ATTACK; // retrigger from current gain
 				}
 				continue;
 			}
@@ -200,19 +207,19 @@ void update_voices_from_keybuff(void){
 		int8_t free_voice    = -1;
 		int8_t best_release  = -1;
 		int8_t chosen = -1;
-		uint16_t best_rel_idx = 0;
+		uint16_t best_rel_gain = UINT16_MAX;
 
 		// The received note is not already active, scan all voices once for best steal candidate.
-		// Prefer an OFF voice, otherwise, track RELEASE voice with highest env_idx
+		// Prefer an OFF voice, otherwise, steal the RELEASE voice closest to silent (lowest gain)
 		for (uint8_t v = 0; v < N_VOICES; ++v) {
 			if (voices[v].env_state == OFF) {
 				free_voice = (int8_t)v;
 				break;
 			}
 			if (voices[v].env_state == RELEASE) {
-				uint16_t idx = voices[v].env_idx;
-				if (idx >= best_rel_idx) { // update idx if an older voice is present
-					best_rel_idx = idx;
+				uint16_t g = voices[v].gain;
+				if (g <= best_rel_gain) {
+					best_rel_gain = g;
 					best_release = (int8_t)v;
 				}
 			}
@@ -237,8 +244,8 @@ void update_voices_from_keybuff(void){
 			}
 		}
 
-		voice->env_state = AD;
-		voice->env_idx = 0;
+		voice->env_state = ATTACK;
+		voice->gain = 0;
 		voice->note_id = (uint8_t)note_id;
 		voice->phase = 0;
 		voice->step = freq_lut[note_id];
@@ -256,7 +263,6 @@ void update_voices_from_keybuff(void){
 		else if (voices[v].hold_ticks == 0)
 		{
 			voices[v].env_state	= RELEASE;
-			voices[v].env_idx = 0;
 		}
 	}
 }
@@ -281,6 +287,23 @@ void blockfill(uint16_t block[]){
 	const int16_t *wave = waves[cwave];
 	int16_t recip = recip_table[n_active];
 
+	// LFO: compute modulated steps once per block (or bypass if vibrato off)
+	uint32_t mod_step[N_VOICES];
+	if (vibrato_on) {
+		lfo_phase += LFO_STEP;
+		int16_t lfo_val = (int16_t)pgm_read_word(&sine_lut[(uint8_t)(lfo_phase >> 24)]);
+		for (uint8_t k = 0; k < n_active; ++k) {
+			uint32_t step = voices[active_idx[k]].step;
+			// offset ≈ ±step/128 ≈ ±13 cents
+			int32_t offset = ((int32_t)(step >> 10) * lfo_val) >> 7;
+			mod_step[k] = (uint32_t)((int32_t)step + offset);
+		}
+	} else {
+		for (uint8_t k = 0; k < n_active; ++k) {
+			mod_step[k] = voices[active_idx[k]].step;
+		}
+	}
+
 	for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
 		int32_t mix = 0;
 		for (uint8_t k = 0; k < n_active; ++k) {
@@ -288,31 +311,47 @@ void blockfill(uint16_t block[]){
 			uint16_t gain;
 
 			switch (voice->env_state) {
-			case SUSTAIN: gain = SUSTAIN_INIT; break;
-			case RELEASE:
-				gain = rel_lut[voice->env_idx];
-				if (++voice->env_idx >= REL_LEN) {
-					note_owner[voice->note_id] = -1;
-					voice->env_state = OFF;
-					}
+			case ATTACK:
+				voice->gain += adsr_rate[0];
+				if (voice->gain >= PEAK_GAIN_FP) {
+					voice->gain = PEAK_GAIN_FP;
+					voice->env_state = DECAY;
+				}
+				gain = voice->gain >> GAIN_FRAC;
 				break;
-			case AD:
-				gain = ad_lut[voice->env_idx];
-				if (++voice->env_idx >= AD_LEN) {
+			case DECAY:
+				if (voice->gain > SUSTAIN_GAIN_FP + adsr_rate[1]) {
+					voice->gain -= adsr_rate[1];
+				} else {
+					voice->gain = SUSTAIN_GAIN_FP;
 					voice->env_state = SUSTAIN;
 				}
+				gain = voice->gain >> GAIN_FRAC;
+				break;
+			case SUSTAIN:
+				gain = SUSTAIN_GAIN;
+				break;
+			case RELEASE:
+				if (voice->gain > adsr_rate[2]) {
+					voice->gain -= adsr_rate[2];
+				} else {
+					voice->gain = 0;
+					note_owner[voice->note_id] = -1;
+					voice->env_state = OFF;
+				}
+				gain = voice->gain >> GAIN_FRAC;
 				break;
 			case OFF:
 			default:
 				continue;
 			}
 
-			// Oscillator step
-			voice->phase += voice->step;
-			uint8_t index = (uint8_t)((voice->phase >> PHASE_SHIFT));
+			// Oscillator step (LFO-modulated)
+			voice->phase += mod_step[k];
+			uint8_t index = (uint8_t)(voice->phase >> PHASE_SHIFT);
 			int16_t s = (int16_t)pgm_read_word(&wave[index]);
 
-			int32_t scaled = fmul16x16_shift10(s,gain);
+			int32_t scaled = fmul16x16_shift10(s, gain);
 			mix += (int32_t)scaled;
 		}
 
@@ -332,30 +371,6 @@ void blockfill(uint16_t block[]){
 }
 
 //----------------------------Synthesizer initialization----------------------------------
-void init_envelopes(void){
-	const uint16_t peak = peak_gain;
-
-	for (uint16_t i = 0; i < AD_LEN; ++i) {
-		if (i < ATTACK_LEN) {
-			ad_lut[i] = (uint16_t) (((uint32_t)peak * i) / (ATTACK_LEN));
-		}
-		else {
-			uint16_t j = i - ATTACK_LEN;
-			if (DECAY_LEN > 0) {
-				ad_lut[i] = (uint16_t)(peak - ((uint32_t)(peak - SUSTAIN_INIT) * j)/(DECAY_LEN));
-				} else {
-				ad_lut[i] = SUSTAIN_INIT;
-			}
-		}
-	}
-
-	uint32_t level = LEVEL_INIT;
-	for (uint16_t i = 0; i < REL_LEN; ++i) {
-		rel_lut[i] = (uint16_t)(level >> 8); // convert back to integer
-		level = (level * ALPHA_MUL) >> DIV_APPROX_SHIFT;
-	}
-}
-
 inline void init_freq_lut(void){
 	for(int i = 0; i < NOTE_LUT_LEN; i++){
 		uint16_t f = (uint16_t)pgm_read_word(&note_lut[i]);

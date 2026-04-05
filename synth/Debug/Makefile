@@ -37,7 +37,7 @@ SUBDIRS :=
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS +=  \
-../clock_test.c \
+../clock.c \
 ../common.c \
 ../dac.c \
 ../dma.c \
@@ -54,7 +54,7 @@ ASM_SRCS +=
 
 
 OBJS +=  \
-clock_test.o \
+clock.o \
 common.o \
 dac.o \
 dma.o \
@@ -64,7 +64,7 @@ timer.o \
 usart.o
 
 OBJS_AS_ARGS +=  \
-clock_test.o \
+clock.o \
 common.o \
 dac.o \
 dma.o \
@@ -74,7 +74,7 @@ timer.o \
 usart.o
 
 C_DEPS +=  \
-clock_test.d \
+clock.d \
 common.d \
 dac.d \
 dma.d \
@@ -84,7 +84,7 @@ timer.d \
 usart.d
 
 C_DEPS_AS_ARGS +=  \
-clock_test.d \
+clock.d \
 common.d \
 dac.d \
 dma.d \
@@ -107,7 +107,7 @@ LINKER_SCRIPT_DEP+=
 
 
 # AVR32/GNU C Compiler
-./clock_test.o: .././clock_test.c
+./clock.o: .././clock.c
 	@echo Building file: $<
 	@echo Invoking: AVR/GNU C Compiler : 5.4.0
 	$(QUOTE)C:\Program Files (x86)\Atmel\Studio\7.0\toolchain\avr8\avr8-gnu-toolchain\bin\avr-gcc.exe$(QUOTE)  -x c -funsigned-char -funsigned-bitfields -DDEBUG  -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\XMEGAA_DFP\1.3.146\include"  -Og -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -g2 -Wall -mmcu=atxmega128a1u -B "C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\XMEGAA_DFP\1.3.146\gcc\dev\atxmega128a1u" -c -std=gnu99 -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 

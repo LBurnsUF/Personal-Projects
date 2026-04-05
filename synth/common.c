@@ -126,7 +126,7 @@ int8_t note_owner[NOTE_LUT_LEN];
 // circular buffer filled by USART
 uint8_t keybuff[KEYLEN];
 
-// cheaper than full division, multiply by an approximate reciprocal to emulate division
+// multiply by an approximate reciprocal to emulate division
 const int16_t recip_table[MAX_VOICES + 1u] = {
 	0,  // unused
 	RECIP_DIV(1u),
@@ -139,9 +139,23 @@ const int16_t recip_table[MAX_VOICES + 1u] = {
 	RECIP_DIV(8u),
 };
 
-const uint16_t peak_gain = 2047;
-uint16_t ad_lut[AD_LEN];
-uint16_t rel_lut[REL_LEN];
+// ADSR
+const uint8_t  adsr_rates[3][N_RATE_PRESETS] PROGMEM = {
+	{  2,    4,    8,   16,   32,   64,  128},
+	{  1,    2,    4,    8,   16,   32,   64},
+	{  1,    2,    4,    8,   16,   32,   64},
+};
+const uint16_t adsr_ms[3][N_RATE_PRESETS] PROGMEM = {
+	{819,  409,  205,  102,   51,   26,   13},
+	{438,  219,  109,   55,   27,   14,    7},
+	{1200, 600,  300,  150,   75,   38,   19},
+};
+
+uint8_t adsr_idx[3]  = {3, 1, 2};
+uint8_t adsr_rate[3]  = {16, 2, 4};
+
+uint32_t lfo_phase = 0;
+volatile uint8_t vibrato_on = 0;
 
 volatile uint8_t scope_busy = 0;
 volatile uint8_t scope_ready = 0;
