@@ -37,6 +37,7 @@ int main(void)
 		voices[v].phase = 0;
 		voices[v].step = 0;
 		voices[v].gain = 0;
+		voices[v].lpf_state = 0;
 		voices[v].seen_this_block = 0;
 		voices[v].hold_ticks = 0;
 	}
@@ -125,11 +126,15 @@ ISR(DMA_CH0_vect){
 //------------------------------------helpers------------------------------------------
 int8_t ascii_to_note_id(uint8_t ch){
 	if (ch == 's') {
-		cwave ^= 1; // toggle wave type
+		cwave = (cwave + 1) % N_WAVES; // cycle wave type
 		return -1;
 	}
 	if (ch == 'a') {
 		vibrato_on ^= 1; // toggle vibrato
+		return -1;
+	}
+	if (ch == 'd') {
+		lpf_idx = (lpf_idx + 1) % N_LPF_PRESETS;
 		return -1;
 	}
 	if (ch >= '1' && ch <= '3') {
@@ -246,6 +251,7 @@ void update_voices_from_keybuff(void){
 
 		voice->env_state = ATTACK;
 		voice->gain = 0;
+		voice->lpf_state = 0;
 		voice->note_id = (uint8_t)note_id;
 		voice->phase = 0;
 		voice->step = freq_lut[note_id];
@@ -287,7 +293,7 @@ void blockfill(uint16_t block[]){
 	const int16_t *wave = waves[cwave];
 	int16_t recip = recip_table[n_active];
 
-	// LFO: compute modulated steps once per block (or bypass if vibrato off)
+	// compute modulated steps once per block
 	uint32_t mod_step[N_VOICES];
 	if (vibrato_on) {
 		lfo_phase += LFO_STEP;
@@ -304,6 +310,7 @@ void blockfill(uint16_t block[]){
 		}
 	}
 
+	uint16_t alpha = pgm_read_word(&lpf_alpha[lpf_idx]);
 	for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
 		int32_t mix = 0;
 		for (uint8_t k = 0; k < n_active; ++k) {
@@ -346,10 +353,18 @@ void blockfill(uint16_t block[]){
 				continue;
 			}
 
-			// Oscillator step (LFO-modulated)
+			// Oscillator step
 			voice->phase += mod_step[k];
 			uint8_t index = (uint8_t)(voice->phase >> PHASE_SHIFT);
 			int16_t s = (int16_t)pgm_read_word(&wave[index]);
+
+			// 1-pole low-pass filter (alpha=256 is bypass)
+			if (alpha < 256u) {
+				int16_t prev = voice->lpf_state;
+				int32_t delta = ((int32_t)(s - prev) * (int16_t)alpha) >> LPF_SHIFT;
+				voice->lpf_state = prev + (int16_t)delta;
+				s = voice->lpf_state;
+			}
 
 			int32_t scaled = fmul16x16_shift10(s, gain);
 			mix += (int32_t)scaled;
@@ -359,7 +374,7 @@ void blockfill(uint16_t block[]){
         mix = (int32_t)((mix * recip) >> DIV_APPROX_SHIFT); // approximate average
 
 		// clamp to 12-bit DAC range
-		int32_t out = mix + DAC_OFFSET; // recenter output about center of voltage range
+		int32_t out = mix + DAC_OFFSET; // recenter output
 		if (out < 0) {
 			out = 0;
 		}

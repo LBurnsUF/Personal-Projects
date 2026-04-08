@@ -24,7 +24,10 @@ typedef enum {
 
 enum WaveType {
 	SINE,
-	TRIANGLE
+	TRIANGLE,
+	SAWTOOTH,
+	SQUARE,
+	N_WAVES
 };
 
 //------------------------------------Structs----------------------------------------
@@ -34,6 +37,7 @@ typedef struct {
 	uint32_t phase;			// phase accumulator
 	uint32_t step;			// phase increment per sample
 	uint16_t gain;			// current envelope gain
+	int16_t lpf_state;		// 1-pole low-pass filter state
 	uint8_t seen_this_block;
 	uint8_t hold_ticks;
 }Voice;
@@ -72,6 +76,10 @@ typedef struct {
 // LFO vibrato
 #define LFO_FREQ	5u
 #define LFO_STEP	((uint32_t)(((uint64_t)LFO_FREQ * BLOCK_SIZE << PHASE_BITS) / FS_REAL))
+
+// Low-pass filter
+#define N_LPF_PRESETS	5u
+#define LPF_SHIFT		8u
 
 // Mixing
 #define DAC_OFFSET 2048u
@@ -134,8 +142,10 @@ typedef struct {
 //------------------------------------Extern LUTs----------------------------------------
 extern const int16_t  sine_lut[NPTS];
 extern const int16_t  triangle_lut[NPTS];
+extern const int16_t  sawtooth_lut[NPTS];
+extern const int16_t  square_lut[NPTS];
 extern const uint16_t note_lut[NOTE_LUT_LEN];
-extern const int16_t* const waves[];
+extern const int16_t* const waves[N_WAVES];
 
 //------------------------------------Extern Globals----------------------------------------
 // PuTTY frame buffer
@@ -173,6 +183,10 @@ extern uint8_t adsr_rate[3];
 // LFO state
 extern uint32_t lfo_phase;
 extern volatile uint8_t vibrato_on;
+
+// Low-pass filter
+extern const uint16_t lpf_alpha[N_LPF_PRESETS];
+extern uint8_t lpf_idx;
 
 // visualizer flags
 extern volatile uint8_t scope_busy;

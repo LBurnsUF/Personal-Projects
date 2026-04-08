@@ -95,10 +95,12 @@ static inline void scope_restore_static_rows(char *text)
 		uint8_t wp = SCOPE_SEQ_DIGIT_POS + 2u;
 		info[wp + 0] = 'W';
 		info[wp + 1] = ':';
-		if (cwave == SINE) {
-			info[wp + 2] = 'S'; info[wp + 3] = 'I'; info[wp + 4] = 'N';
-		} else {
-			info[wp + 2] = 'T'; info[wp + 3] = 'R'; info[wp + 4] = 'I';
+		switch (cwave) {
+		case SINE:     info[wp+2]='S'; info[wp+3]='I'; info[wp+4]='N'; break;
+		case TRIANGLE: info[wp+2]='T'; info[wp+3]='R'; info[wp+4]='I'; break;
+		case SAWTOOTH: info[wp+2]='S'; info[wp+3]='A'; info[wp+4]='W'; break;
+		case SQUARE:   info[wp+2]='S'; info[wp+3]='Q'; info[wp+4]='R'; break;
+		default:       info[wp+2]='?'; info[wp+3]='?'; info[wp+4]='?'; break;
 		}
 
 		// Vibrato
@@ -107,7 +109,7 @@ static inline void scope_restore_static_rows(char *text)
 		info[vp + 1] = ':';
 		info[vp + 2] = vibrato_on ? '1' : '0';
 
-		// ADSR ms values, right-aligned in 4-char fields
+		// ADSR
 		uint8_t ap = vp + 4u;
 		info[ap + 0] = 'A'; info[ap + 1] = ':';
 		scope_write_uint(&info[ap + 2], pgm_read_word(&adsr_ms[0][adsr_idx[0]]), 4);
@@ -115,6 +117,11 @@ static inline void scope_restore_static_rows(char *text)
 		scope_write_uint(&info[ap + 9], pgm_read_word(&adsr_ms[1][adsr_idx[1]]), 4);
 		info[ap + 14] = 'R'; info[ap + 15] = ':';
 		scope_write_uint(&info[ap + 16], pgm_read_word(&adsr_ms[2][adsr_idx[2]]), 4);
+
+		uint8_t lp = ap + 21u;
+		info[lp + 0] = 'F';
+		info[lp + 1] = ':';
+		info[lp + 2] = (char)('0' + lpf_idx);
 	}
 }
 
@@ -174,6 +181,11 @@ static void init_one_frame(char *frame)
 		scope_write_uint(&info[ap + 9], pgm_read_word(&adsr_ms[1][adsr_idx[1]]), 4);
 		info[ap + 14] = 'R'; info[ap + 15] = ':';
 		scope_write_uint(&info[ap + 16], pgm_read_word(&adsr_ms[2][adsr_idx[2]]), 4);
+
+		uint8_t lp = ap + 21u;
+		info[lp + 0] = 'F';
+		info[lp + 1] = ':';
+		info[lp + 2] = '0';
 	}
 	scope_write_home_suffix(frame);
 }
@@ -209,13 +221,26 @@ void scope_update_wave(void)
 	scope_restore_static_rows(text);
 	scope_write_home_suffix(SCOPE_FRAME_BUILD_PTR);
 
+	uint8_t prev_col_row = WAVE_ROW_FROM_DAC(scope_get_sample(trigger_offset));
 	for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
 		uint16_t sample_idx = trigger_offset + (uint16_t)col * SCOPE_DECIMATE_FACTOR;
 		uint16_t dac = scope_get_sample(sample_idx);
 		uint8_t new_row = WAVE_ROW_FROM_DAC(dac);
 
 		text[new_row * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
-		scope_prev_row[col] = new_row;
+
+		// vertical fill between this column and the previous column
+		if (col > 0) {
+			if (prev_col_row < new_row) {
+				for (uint8_t r = prev_col_row + 1; r < new_row; ++r)
+					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
+			} else if (new_row < prev_col_row) {
+				for (uint8_t r = new_row + 1; r < prev_col_row; ++r)
+					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
+			}
+		}
+
+		prev_col_row = new_row;
 	}
 
 	scope_publish_frame();
