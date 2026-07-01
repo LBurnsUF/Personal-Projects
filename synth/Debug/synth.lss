@@ -23,11 +23,11 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING
   9 .debug_frame  000002f4  00000000  00000000  0001066c  2**2
                   CONTENTS, READONLY, DEBUGGING
- 10 .debug_str    000052e8  00000000  00000000  00010960  2**0
+ 10 .debug_str    0000531d  00000000  00000000  00010960  2**0
                   CONTENTS, READONLY, DEBUGGING
- 11 .debug_loc    0000130a  00000000  00000000  00015c48  2**0
+ 11 .debug_loc    0000130a  00000000  00000000  00015c7d  2**0
                   CONTENTS, READONLY, DEBUGGING
- 12 .debug_ranges 00000170  00000000  00000000  00016f52  2**0
+ 12 .debug_ranges 00000170  00000000  00000000  00016f87  2**0
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -556,19 +556,10 @@ void init_dac(void){
      ca4:	08 95       	ret
 
 00000ca6 <init_dma_dac>:
-
-//----------------------------DMA CH0 init (DAC)--------------------------------
-// CH0 always handles outputting samples to dac from filled ping-pong buffer
-void init_dma_dac(void){
-	// Source increments. Increment from DATAL -> DATAH.
-	DMA.CH0.ADDRCTRL = DMA_CH_SRCRELOAD_BLOCK_gc | DMA_CH_SRCDIR_INC_gc | DMA_CH_DESTRELOAD_BURST_gc | DMA_CH_DESTDIR_INC_gc;
      ca6:	e0 e0       	ldi	r30, 0x00	; 0
      ca8:	f1 e0       	ldi	r31, 0x01	; 1
      caa:	89 e5       	ldi	r24, 0x59	; 89
      cac:	82 8b       	std	Z+18, r24	; 0x12
-
-	uintptr_t dst = (uintptr_t)&DACA.CH1DATAL;
-	uintptr_t src = (uintptr_t)&pfbuff[cbuff][0];
      cae:	80 91 3e 20 	lds	r24, 0x203E	; 0x80203e <cbuff>
      cb2:	90 e0       	ldi	r25, 0x00	; 0
      cb4:	98 2f       	mov	r25, r24
@@ -576,41 +567,23 @@ void init_dma_dac(void){
      cb8:	99 0f       	add	r25, r25
      cba:	8f 5f       	subi	r24, 0xFF	; 255
      cbc:	9a 4c       	sbci	r25, 0xCA	; 202
-
-	DMA.CH0.SRCADDR0 = (uint8_t)((uint32_t)src & 0xFF);
      cbe:	80 8f       	std	Z+24, r24	; 0x18
-	DMA.CH0.SRCADDR1 = (uint8_t)(((uint32_t)src >> 8) & 0xFF);
      cc0:	91 8f       	std	Z+25, r25	; 0x19
-	DMA.CH0.SRCADDR2 = (uint8_t)(((uint32_t)src >> 16) & 0xFF);
      cc2:	12 8e       	std	Z+26, r1	; 0x1a
-
-	// Always send points to DAC
-	DMA.CH0.DESTADDR0 = (uint8_t)((uint32_t)dst & 0xFF);
      cc4:	8a e1       	ldi	r24, 0x1A	; 26
      cc6:	84 8f       	std	Z+28, r24	; 0x1c
-	DMA.CH0.DESTADDR1 = (uint8_t)(((uint32_t)dst >> 8) & 0xFF);
      cc8:	83 e0       	ldi	r24, 0x03	; 3
      cca:	85 8f       	std	Z+29, r24	; 0x1d
-	DMA.CH0.DESTADDR2 = (uint8_t)(((uint32_t)dst >> 16) & 0xFF);
      ccc:	16 8e       	std	Z+30, r1	; 0x1e
-
-	// Initialize single shot on each TCC0 overflow
-	DMA.CH0.TRIGSRC = DMA_CH_TRIGSRC_EVSYS_CH0_gc;
      cce:	81 e0       	ldi	r24, 0x01	; 1
      cd0:	83 8b       	std	Z+19, r24	; 0x13
-
-	DMA.CH0.REPCNT = 0;					// Unlimited Repeat
      cd2:	16 8a       	std	Z+22, r1	; 0x16
-	DMA.CH0.TRFCNT = BLOCK_SIZE * 2;	// 16 bit samples, 2 bytes per DMA event
      cd4:	80 e0       	ldi	r24, 0x00	; 0
      cd6:	92 e0       	ldi	r25, 0x02	; 2
      cd8:	84 8b       	std	Z+20, r24	; 0x14
      cda:	95 8b       	std	Z+21, r25	; 0x15
-
-	DMA.CH0.CTRLB = DMA_CH_TRNINTLVL_MED_gc;
      cdc:	82 e0       	ldi	r24, 0x02	; 2
      cde:	81 8b       	std	Z+17, r24	; 0x11
-	PMIC.CTRL |= PMIC_MEDLVLEN_bm;
      ce0:	a0 ea       	ldi	r26, 0xA0	; 160
      ce2:	b0 e0       	ldi	r27, 0x00	; 0
      ce4:	12 96       	adiw	r26, 0x02	; 2
@@ -619,75 +592,40 @@ void init_dma_dac(void){
      cea:	82 60       	ori	r24, 0x02	; 2
      cec:	12 96       	adiw	r26, 0x02	; 2
      cee:	8c 93       	st	X, r24
-
-	// Burst 2 bytes per event, single-shot per trigger
-	DMA.CH0.CTRLA |= DMA_CH_ENABLE_bm | DMA_CH_BURSTLEN_2BYTE_gc | DMA_CH_SINGLE_bm;
      cf0:	80 89       	ldd	r24, Z+16	; 0x10
      cf2:	85 68       	ori	r24, 0x85	; 133
      cf4:	80 8b       	std	Z+16, r24	; 0x10
-	DMA.CTRL = DMA_ENABLE_bm;
      cf6:	80 e8       	ldi	r24, 0x80	; 128
      cf8:	80 83       	st	Z, r24
      cfa:	08 95       	ret
 
 00000cfc <init_dma_usart>:
-}
-
-void init_dma_usart(void){
-	// Fixed source, increment destination within keybuff[]
-	DMA.CH1.ADDRCTRL = DMA_CH_SRCRELOAD_NONE_gc | DMA_CH_SRCDIR_FIXED_gc | DMA_CH_DESTRELOAD_BLOCK_gc | DMA_CH_DESTDIR_INC_gc;
      cfc:	e0 e0       	ldi	r30, 0x00	; 0
      cfe:	f1 e0       	ldi	r31, 0x01	; 1
      d00:	85 e0       	ldi	r24, 0x05	; 5
      d02:	82 a3       	std	Z+34, r24	; 0x22
-
-	uintptr_t src = (uintptr_t)&USARTD0.DATA;
-	uintptr_t dst = (uintptr_t)&keybuff[0];
      d04:	81 e0       	ldi	r24, 0x01	; 1
      d06:	99 e3       	ldi	r25, 0x39	; 57
-
-	DMA.CH1.SRCADDR0 = (uint8_t)((uint32_t)src & 0xFF);
      d08:	50 ea       	ldi	r21, 0xA0	; 160
      d0a:	50 a7       	std	Z+40, r21	; 0x28
-	DMA.CH1.SRCADDR1 = (uint8_t)(((uint32_t)src >> 8) & 0xFF);
      d0c:	49 e0       	ldi	r20, 0x09	; 9
      d0e:	41 a7       	std	Z+41, r20	; 0x29
-	DMA.CH1.SRCADDR2 = (uint8_t)(((uint32_t)src >> 16) & 0xFF);
      d10:	12 a6       	std	Z+42, r1	; 0x2a
-
-	// Send points to keybuff
-	DMA.CH1.DESTADDR0 = (uint8_t)((uint32_t)dst & 0xFF);
      d12:	84 a7       	std	Z+44, r24	; 0x2c
-	DMA.CH1.DESTADDR1 = (uint8_t)(((uint32_t)dst >> 8) & 0xFF);
      d14:	95 a7       	std	Z+45, r25	; 0x2d
-	DMA.CH1.DESTADDR2 = (uint8_t)(((uint32_t)dst >> 16) & 0xFF);
      d16:	16 a6       	std	Z+46, r1	; 0x2e
-
-	// Trigger on each received byte
-	DMA.CH1.TRIGSRC = DMA_CH_TRIGSRC_USARTD0_RXC_gc;
      d18:	8b e6       	ldi	r24, 0x6B	; 107
      d1a:	83 a3       	std	Z+35, r24	; 0x23
-
-	DMA.CH1.REPCNT = 0;			// Unlimited Repeat
      d1c:	16 a2       	std	Z+38, r1	; 0x26
-	DMA.CH1.TRFCNT = KEYLEN;	// Circular buffer size in bytes. N bytes for type, N bytes for keys
      d1e:	89 e0       	ldi	r24, 0x09	; 9
      d20:	90 e0       	ldi	r25, 0x00	; 0
      d22:	84 a3       	std	Z+36, r24	; 0x24
      d24:	95 a3       	std	Z+37, r25	; 0x25
-
-	// Burst 1 byte per character received
-	DMA.CH1.CTRLA |= DMA_CH_ENABLE_bm | DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_REPEAT_bm | DMA_CH_SINGLE_bm;
      d26:	80 a1       	ldd	r24, Z+32	; 0x20
      d28:	84 6a       	ori	r24, 0xA4	; 164
      d2a:	80 a3       	std	Z+32, r24	; 0x20
-
-	DMA.CH2.ADDRCTRL = DMA_CH_SRCRELOAD_TRANSACTION_gc | DMA_CH_SRCDIR_INC_gc | DMA_CH_DESTRELOAD_NONE_gc | DMA_CH_DESTDIR_FIXED_gc;
      d2c:	80 ed       	ldi	r24, 0xD0	; 208
      d2e:	82 ab       	std	Z+50, r24	; 0x32
-
-	uintptr_t dst2 = (uintptr_t)&USARTD0.DATA;
-	uintptr_t src2 = (uintptr_t)&scope_frame_bank[scope_frame_tx][0];
      d30:	60 91 41 20 	lds	r22, 0x2041	; 0x802041 <scope_frame_tx>
      d34:	2a e2       	ldi	r18, 0x2A	; 42
      d36:	39 e0       	ldi	r19, 0x09	; 9
@@ -698,67 +636,38 @@ void init_dma_usart(void){
      d40:	11 24       	eor	r1, r1
      d42:	86 56       	subi	r24, 0x66	; 102
      d44:	9f 4d       	sbci	r25, 0xDF	; 223
-
-	DMA.CH2.SRCADDR0 = (uint8_t)((uint32_t)src2 & 0xFF);
      d46:	80 af       	std	Z+56, r24	; 0x38
-	DMA.CH2.SRCADDR1 = (uint8_t)(((uint32_t)src2 >> 8) & 0xFF);
      d48:	91 af       	std	Z+57, r25	; 0x39
-	DMA.CH2.SRCADDR2 = (uint8_t)(((uint32_t)src2 >> 16) & 0xFF);
      d4a:	12 ae       	std	Z+58, r1	; 0x3a
-
-	DMA.CH2.DESTADDR0 = (uint8_t)((uint32_t)dst2 & 0xFF);
      d4c:	54 af       	std	Z+60, r21	; 0x3c
-	DMA.CH2.DESTADDR1 = (uint8_t)(((uint32_t)dst2 >> 8) & 0xFF);
      d4e:	45 af       	std	Z+61, r20	; 0x3d
-	DMA.CH2.DESTADDR2 = (uint8_t)(((uint32_t)dst2 >> 16) & 0xFF);
      d50:	16 ae       	std	Z+62, r1	; 0x3e
-
-	DMA.CH2.TRFCNT = SCOPE_FRAME_BYTES;	// Frame buffer size in bytes
      d52:	24 ab       	std	Z+52, r18	; 0x34
      d54:	35 ab       	std	Z+53, r19	; 0x35
-
-	// Burst 1 byte per DRE
-	DMA.CH2.TRIGSRC = DMA_CH_TRIGSRC_USARTD0_DRE_gc;
      d56:	8c e6       	ldi	r24, 0x6C	; 108
      d58:	83 ab       	std	Z+51, r24	; 0x33
-	DMA.CH2.CTRLA = DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm;
      d5a:	84 e0       	ldi	r24, 0x04	; 4
      d5c:	80 ab       	std	Z+48, r24	; 0x30
-
-	DMA.CTRL |= DMA_ENABLE_bm;
      d5e:	80 81       	ld	r24, Z
      d60:	80 68       	ori	r24, 0x80	; 128
      d62:	80 83       	st	Z, r24
      d64:	08 95       	ret
 
 00000d66 <set_src_addr>:
-}
-
-void set_src_addr(uint8_t cbuff){
-	uintptr_t src = (uintptr_t)&pfbuff[cbuff][0];
      d66:	90 e0       	ldi	r25, 0x00	; 0
      d68:	98 2f       	mov	r25, r24
      d6a:	88 27       	eor	r24, r24
      d6c:	99 0f       	add	r25, r25
      d6e:	8f 5f       	subi	r24, 0xFF	; 255
      d70:	9a 4c       	sbci	r25, 0xCA	; 202
-
-	DMA.CH0.SRCADDR0 = (uint8_t)((uint32_t)src & 0xFF);
      d72:	e0 e0       	ldi	r30, 0x00	; 0
      d74:	f1 e0       	ldi	r31, 0x01	; 1
      d76:	80 8f       	std	Z+24, r24	; 0x18
-	DMA.CH0.SRCADDR1 = (uint8_t)(((uint32_t)src >> 8) & 0xFF);
      d78:	91 8f       	std	Z+25, r25	; 0x19
-	DMA.CH0.SRCADDR2 = (uint8_t)(((uint32_t)src >> 16) & 0xFF);
      d7a:	12 8e       	std	Z+26, r1	; 0x1a
      d7c:	08 95       	ret
 
 00000d7e <set_scope_src_addr>:
-}
-
-void set_scope_src_addr(uint8_t bank)
-{
-	uintptr_t src = (uintptr_t)&scope_frame_bank[bank][0];
      d7e:	2a e2       	ldi	r18, 0x2A	; 42
      d80:	39 e0       	ldi	r19, 0x09	; 9
      d82:	48 2f       	mov	r20, r24
@@ -769,40 +678,27 @@ void set_scope_src_addr(uint8_t bank)
      d8c:	11 24       	eor	r1, r1
      d8e:	86 56       	subi	r24, 0x66	; 102
      d90:	9f 4d       	sbci	r25, 0xDF	; 223
-
-	DMA.CH2.SRCADDR0 = (uint8_t)((uint32_t)src & 0xFF);
      d92:	e0 e0       	ldi	r30, 0x00	; 0
      d94:	f1 e0       	ldi	r31, 0x01	; 1
      d96:	80 af       	std	Z+56, r24	; 0x38
-	DMA.CH2.SRCADDR1 = (uint8_t)(((uint32_t)src >> 8) & 0xFF);
      d98:	91 af       	std	Z+57, r25	; 0x39
-	DMA.CH2.SRCADDR2 = (uint8_t)(((uint32_t)src >> 16) & 0xFF);
      d9a:	12 ae       	std	Z+58, r1	; 0x3a
      d9c:	08 95       	ret
 
 00000d9e <scope_write_uint>:
-#define SCOPE_SEQ_LABEL_POS   (SCOPE_INFO_VOICE_POS + 2u)
-#define SCOPE_SEQ_DIGIT_POS   (SCOPE_SEQ_LABEL_POS + 2u)
-
-// Write uint16_t right-aligned into a fixed-width field, space-padded
-static void scope_write_uint(char *dest, uint16_t val, uint8_t width)
-{
      d9e:	0f 93       	push	r16
      da0:	1f 93       	push	r17
      da2:	cf 93       	push	r28
      da4:	df 93       	push	r29
      da6:	ec 01       	movw	r28, r24
      da8:	fb 01       	movw	r30, r22
-	for (int8_t i = width - 1; i >= 0; --i) {
      daa:	41 50       	subi	r20, 0x01	; 1
      dac:	54 2f       	mov	r21, r20
      dae:	3b c0       	rjmp	.+118    	; 0xe26 <scope_write_uint+0x88>
-		if (val > 0 || i == (int8_t)(width - 1)) {
      db0:	30 97       	sbiw	r30, 0x00	; 0
      db2:	11 f4       	brne	.+4      	; 0xdb8 <scope_write_uint+0x1a>
      db4:	54 13       	cpse	r21, r20
      db6:	2f c0       	rjmp	.+94     	; 0xe16 <scope_write_uint+0x78>
-			dest[i] = '0' + (val % 10);
      db8:	8e 01       	movw	r16, r28
      dba:	05 0f       	add	r16, r21
      dbc:	11 1d       	adc	r17, r1
@@ -836,7 +732,6 @@ static void scope_write_uint(char *dest, uint16_t val, uint8_t width)
      df6:	80 5d       	subi	r24, 0xD0	; 208
      df8:	d8 01       	movw	r26, r16
      dfa:	8c 93       	st	X, r24
-			val /= 10;
      dfc:	9f 01       	movw	r18, r30
      dfe:	ad ec       	ldi	r26, 0xCD	; 205
      e00:	bc ec       	ldi	r27, 0xCC	; 204
@@ -849,8 +744,6 @@ static void scope_write_uint(char *dest, uint16_t val, uint8_t width)
      e10:	f6 95       	lsr	r31
      e12:	e7 95       	ror	r30
      e14:	07 c0       	rjmp	.+14     	; 0xe24 <scope_write_uint+0x86>
-		} else {
-			dest[i] = ' ';
      e16:	80 e2       	ldi	r24, 0x20	; 32
      e18:	de 01       	movw	r26, r28
      e1a:	a5 0f       	add	r26, r21
@@ -858,21 +751,9 @@ static void scope_write_uint(char *dest, uint16_t val, uint8_t width)
      e1e:	57 fd       	sbrc	r21, 7
      e20:	ba 95       	dec	r27
      e22:	8c 93       	st	X, r24
-#define SCOPE_SEQ_DIGIT_POS   (SCOPE_SEQ_LABEL_POS + 2u)
-
-// Write uint16_t right-aligned into a fixed-width field, space-padded
-static void scope_write_uint(char *dest, uint16_t val, uint8_t width)
-{
-	for (int8_t i = width - 1; i >= 0; --i) {
      e24:	51 50       	subi	r21, 0x01	; 1
      e26:	55 23       	and	r21, r21
      e28:	1c f6       	brge	.-122    	; 0xdb0 <scope_write_uint+0x12>
-			val /= 10;
-		} else {
-			dest[i] = ' ';
-		}
-	}
-}
      e2a:	df 91       	pop	r29
      e2c:	cf 91       	pop	r28
      e2e:	1f 91       	pop	r17
@@ -880,12 +761,6 @@ static void scope_write_uint(char *dest, uint16_t val, uint8_t width)
      e32:	08 95       	ret
 
 00000e34 <init_one_frame>:
-	}
-	return DAC_OFFSET;
-}
-
-static void init_one_frame(char *frame)
-{
      e34:	cf 92       	push	r12
      e36:	df 92       	push	r13
      e38:	ef 92       	push	r14
@@ -895,65 +770,37 @@ static void init_one_frame(char *frame)
      e40:	cf 93       	push	r28
      e42:	df 93       	push	r29
      e44:	ec 01       	movw	r28, r24
-	for (uint8_t row = 0; row < SCOPE_ROWS; ++row) {
      e46:	40 e0       	ldi	r20, 0x00	; 0
      e48:	19 c0       	rjmp	.+50     	; 0xe7c <init_one_frame+0x48>
-		char *line = &frame[row * SCOPE_STRIDE];
      e4a:	9e 01       	movw	r18, r28
      e4c:	82 e8       	ldi	r24, 0x82	; 130
      e4e:	48 9f       	mul	r20, r24
      e50:	20 0d       	add	r18, r0
      e52:	31 1d       	adc	r19, r1
      e54:	11 24       	eor	r1, r1
-
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
      e56:	80 e0       	ldi	r24, 0x00	; 0
      e58:	06 c0       	rjmp	.+12     	; 0xe66 <init_one_frame+0x32>
-			line[col] = SCOPE_CHAR_BG;
      e5a:	f9 01       	movw	r30, r18
      e5c:	e8 0f       	add	r30, r24
      e5e:	f1 1d       	adc	r31, r1
      e60:	90 e2       	ldi	r25, 0x20	; 32
      e62:	90 83       	st	Z, r25
-static void init_one_frame(char *frame)
-{
-	for (uint8_t row = 0; row < SCOPE_ROWS; ++row) {
-		char *line = &frame[row * SCOPE_STRIDE];
-
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
      e64:	8f 5f       	subi	r24, 0xFF	; 255
      e66:	88 23       	and	r24, r24
      e68:	c4 f7       	brge	.-16     	; 0xe5a <init_one_frame+0x26>
-			line[col] = SCOPE_CHAR_BG;
-		}
-
-		line[SCOPE_COLS + 0] = '\r';
      e6a:	f9 01       	movw	r30, r18
      e6c:	e0 58       	subi	r30, 0x80	; 128
      e6e:	ff 4f       	sbci	r31, 0xFF	; 255
      e70:	8d e0       	ldi	r24, 0x0D	; 13
      e72:	80 83       	st	Z, r24
-		line[SCOPE_COLS + 1] = '\n';
      e74:	31 96       	adiw	r30, 0x01	; 1
      e76:	8a e0       	ldi	r24, 0x0A	; 10
      e78:	80 83       	st	Z, r24
-	return DAC_OFFSET;
-}
-
-static void init_one_frame(char *frame)
-{
-	for (uint8_t row = 0; row < SCOPE_ROWS; ++row) {
      e7a:	4f 5f       	subi	r20, 0xFF	; 255
      e7c:	42 31       	cpi	r20, 0x12	; 18
      e7e:	28 f3       	brcs	.-54     	; 0xe4a <init_one_frame+0x16>
      e80:	80 e0       	ldi	r24, 0x00	; 0
      e82:	09 c0       	rjmp	.+18     	; 0xe96 <init_one_frame+0x62>
-		line[SCOPE_COLS + 1] = '\n';
-	}
-
-	if (SCOPE_WAVE_ROWS < SCOPE_ROWS) {
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
-			frame[SCOPE_WAVE_ROWS * SCOPE_STRIDE + col] = SCOPE_CHAR_ZERO;
      e84:	e8 2f       	mov	r30, r24
      e86:	f0 e0       	ldi	r31, 0x00	; 0
      e88:	e0 5e       	subi	r30, 0xE0	; 224
@@ -962,23 +809,11 @@ static void init_one_frame(char *frame)
      e8e:	fd 1f       	adc	r31, r29
      e90:	9d e2       	ldi	r25, 0x2D	; 45
      e92:	90 83       	st	Z, r25
-		line[SCOPE_COLS + 0] = '\r';
-		line[SCOPE_COLS + 1] = '\n';
-	}
-
-	if (SCOPE_WAVE_ROWS < SCOPE_ROWS) {
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
      e94:	8f 5f       	subi	r24, 0xFF	; 255
      e96:	88 23       	and	r24, r24
      e98:	ac f7       	brge	.-22     	; 0xe84 <init_one_frame+0x50>
      e9a:	20 e0       	ldi	r18, 0x00	; 0
      e9c:	0d c0       	rjmp	.+26     	; 0xeb8 <init_one_frame+0x84>
-		}
-	}
-
-	if (SCOPE_INFO_ROW < SCOPE_ROWS) {
-		for (uint8_t pos = 0; pos < SCOPE_INFO_LABEL_LEN; ++pos) {
-			frame[SCOPE_INFO_ROW * SCOPE_STRIDE + pos] = SCOPE_INFO_LABEL[pos];
      e9e:	82 2f       	mov	r24, r18
      ea0:	90 e0       	ldi	r25, 0x00	; 0
      ea2:	fc 01       	movw	r30, r24
@@ -991,23 +826,12 @@ static void init_one_frame(char *frame)
      eb0:	bf 4d       	sbci	r27, 0xDF	; 223
      eb2:	8c 91       	ld	r24, X
      eb4:	80 83       	st	Z, r24
-			frame[SCOPE_WAVE_ROWS * SCOPE_STRIDE + col] = SCOPE_CHAR_ZERO;
-		}
-	}
-
-	if (SCOPE_INFO_ROW < SCOPE_ROWS) {
-		for (uint8_t pos = 0; pos < SCOPE_INFO_LABEL_LEN; ++pos) {
      eb6:	2f 5f       	subi	r18, 0xFF	; 255
      eb8:	2f 30       	cpi	r18, 0x0F	; 15
      eba:	88 f3       	brcs	.-30     	; 0xe9e <init_one_frame+0x6a>
-			frame[SCOPE_INFO_ROW * SCOPE_STRIDE + pos] = SCOPE_INFO_LABEL[pos];
-		}
-
-		char *info = &frame[SCOPE_INFO_ROW * SCOPE_STRIDE];
      ebc:	8e 01       	movw	r16, r28
      ebe:	0e 55       	subi	r16, 0x5E	; 94
      ec0:	17 4f       	sbci	r17, 0xF7	; 247
-		info[SCOPE_INFO_VOICE_POS] = '0';
      ec2:	fe 01       	movw	r30, r28
      ec4:	ef 54       	subi	r30, 0x4F	; 79
      ec6:	f7 4f       	sbci	r31, 0xF7	; 247
@@ -1016,23 +840,17 @@ static void init_one_frame(char *frame)
      ecc:	ef 2e       	mov	r14, r31
      ece:	f0 2d       	mov	r31, r0
      ed0:	e0 82       	st	Z, r14
-		info[SCOPE_SEQ_LABEL_POS + 0] = 'S';
      ed2:	32 96       	adiw	r30, 0x02	; 2
      ed4:	83 e5       	ldi	r24, 0x53	; 83
      ed6:	80 83       	st	Z, r24
-		info[SCOPE_SEQ_LABEL_POS + 1] = ':';
      ed8:	31 96       	adiw	r30, 0x01	; 1
      eda:	0f 2e       	mov	r0, r31
      edc:	fa e3       	ldi	r31, 0x3A	; 58
      ede:	ff 2e       	mov	r15, r31
      ee0:	f0 2d       	mov	r31, r0
      ee2:	f0 82       	st	Z, r15
-		info[SCOPE_SEQ_DIGIT_POS] = '0';
      ee4:	31 96       	adiw	r30, 0x01	; 1
      ee6:	e0 82       	st	Z, r14
-
-		uint8_t wp = SCOPE_SEQ_DIGIT_POS + 2u;
-		info[wp + 0] = 'W'; info[wp + 1] = ':';
      ee8:	97 e5       	ldi	r25, 0x57	; 87
      eea:	d8 01       	movw	r26, r16
      eec:	55 96       	adiw	r26, 0x15	; 21
@@ -1041,7 +859,6 @@ static void init_one_frame(char *frame)
      ef2:	56 96       	adiw	r26, 0x16	; 22
      ef4:	fc 92       	st	X, r15
      ef6:	56 97       	sbiw	r26, 0x16	; 22
-		info[wp + 2] = 'S'; info[wp + 3] = 'I'; info[wp + 4] = 'N';
      ef8:	57 96       	adiw	r26, 0x17	; 23
      efa:	8c 93       	st	X, r24
      efc:	57 97       	sbiw	r26, 0x17	; 23
@@ -1053,9 +870,6 @@ static void init_one_frame(char *frame)
      f08:	59 96       	adiw	r26, 0x19	; 25
      f0a:	8c 93       	st	X, r24
      f0c:	59 97       	sbiw	r26, 0x19	; 25
-
-		uint8_t vp = wp + 6u;
-		info[vp + 0] = 'V'; info[vp + 1] = ':';
      f0e:	86 e5       	ldi	r24, 0x56	; 86
      f10:	5b 96       	adiw	r26, 0x1b	; 27
      f12:	8c 93       	st	X, r24
@@ -1063,20 +877,15 @@ static void init_one_frame(char *frame)
      f16:	5c 96       	adiw	r26, 0x1c	; 28
      f18:	fc 92       	st	X, r15
      f1a:	5c 97       	sbiw	r26, 0x1c	; 28
-		info[vp + 2] = '0';
      f1c:	5d 96       	adiw	r26, 0x1d	; 29
      f1e:	ec 92       	st	X, r14
      f20:	5d 97       	sbiw	r26, 0x1d	; 29
-
-		uint8_t ap = vp + 4u;
-		info[ap + 0] = 'A'; info[ap + 1] = ':';
      f22:	81 e4       	ldi	r24, 0x41	; 65
      f24:	5f 96       	adiw	r26, 0x1f	; 31
      f26:	8c 93       	st	X, r24
      f28:	5f 97       	sbiw	r26, 0x1f	; 31
      f2a:	90 96       	adiw	r26, 0x20	; 32
      f2c:	fc 92       	st	X, r15
-		scope_write_uint(&info[ap + 2], pgm_read_word(&adsr_ms[0][adsr_idx[0]]), 4);
      f2e:	0f 2e       	mov	r0, r31
      f30:	f3 e0       	ldi	r31, 0x03	; 3
      f32:	cf 2e       	mov	r12, r31
@@ -1096,12 +905,10 @@ static void init_one_frame(char *frame)
      f4e:	c8 01       	movw	r24, r16
      f50:	81 96       	adiw	r24, 0x21	; 33
      f52:	0e 94 cf 06 	call	0xd9e	; 0xd9e <scope_write_uint>
-		info[ap + 7] = 'D'; info[ap + 8] = ':';
      f56:	84 e4       	ldi	r24, 0x44	; 68
      f58:	f8 01       	movw	r30, r16
      f5a:	86 a3       	std	Z+38, r24	; 0x26
      f5c:	f7 a2       	std	Z+39, r15	; 0x27
-		scope_write_uint(&info[ap + 9], pgm_read_word(&adsr_ms[1][adsr_idx[1]]), 4);
      f5e:	d6 01       	movw	r26, r12
      f60:	11 96       	adiw	r26, 0x01	; 1
      f62:	ec 91       	ld	r30, X
@@ -1117,12 +924,10 @@ static void init_one_frame(char *frame)
      f76:	c8 01       	movw	r24, r16
      f78:	88 96       	adiw	r24, 0x28	; 40
      f7a:	0e 94 cf 06 	call	0xd9e	; 0xd9e <scope_write_uint>
-		info[ap + 14] = 'R'; info[ap + 15] = ':';
      f7e:	82 e5       	ldi	r24, 0x52	; 82
      f80:	f8 01       	movw	r30, r16
      f82:	85 a7       	std	Z+45, r24	; 0x2d
      f84:	f6 a6       	std	Z+46, r15	; 0x2e
-		scope_write_uint(&info[ap + 16], pgm_read_word(&adsr_ms[2][adsr_idx[2]]), 4);
      f86:	d6 01       	movw	r26, r12
      f88:	12 96       	adiw	r26, 0x02	; 2
      f8a:	ec 91       	ld	r30, X
@@ -1138,51 +943,29 @@ static void init_one_frame(char *frame)
      f9e:	c8 01       	movw	r24, r16
      fa0:	8f 96       	adiw	r24, 0x2f	; 47
      fa2:	0e 94 cf 06 	call	0xd9e	; 0xd9e <scope_write_uint>
-
-		uint8_t lp = ap + 21u;
-		info[lp + 0] = 'F';
      fa6:	86 e4       	ldi	r24, 0x46	; 70
      fa8:	f8 01       	movw	r30, r16
      faa:	84 ab       	std	Z+52, r24	; 0x34
-		info[lp + 1] = ':';
      fac:	f5 aa       	std	Z+53, r15	; 0x35
-		info[lp + 2] = '0';
      fae:	e6 aa       	std	Z+54, r14	; 0x36
-	return &SCOPE_FRAME_BUILD_PTR[0];
-}
-
-static inline void scope_write_home_suffix(char *frame)
-{
-	frame[SCOPE_FRAME_CHAR_BYTES + 0] = 0x1B;
      fb0:	ee 57       	subi	r30, 0x7E	; 126
      fb2:	ff 4f       	sbci	r31, 0xFF	; 255
      fb4:	9b e1       	ldi	r25, 0x1B	; 27
      fb6:	90 83       	st	Z, r25
-	frame[SCOPE_FRAME_CHAR_BYTES + 1] = '[';
      fb8:	31 96       	adiw	r30, 0x01	; 1
      fba:	8b e5       	ldi	r24, 0x5B	; 91
      fbc:	80 83       	st	Z, r24
-	frame[SCOPE_FRAME_CHAR_BYTES + 2] = 'J';
      fbe:	31 96       	adiw	r30, 0x01	; 1
      fc0:	2a e4       	ldi	r18, 0x4A	; 74
      fc2:	20 83       	st	Z, r18
-	frame[SCOPE_FRAME_CHAR_BYTES + 3] = 0x1B;
      fc4:	31 96       	adiw	r30, 0x01	; 1
      fc6:	90 83       	st	Z, r25
-	frame[SCOPE_FRAME_CHAR_BYTES + 4] = '[';
      fc8:	31 96       	adiw	r30, 0x01	; 1
      fca:	80 83       	st	Z, r24
-	frame[SCOPE_FRAME_CHAR_BYTES + 5] = 'H';
      fcc:	c7 5d       	subi	r28, 0xD7	; 215
      fce:	d6 4f       	sbci	r29, 0xF6	; 246
      fd0:	88 e4       	ldi	r24, 0x48	; 72
      fd2:	88 83       	st	Y, r24
-		info[lp + 0] = 'F';
-		info[lp + 1] = ':';
-		info[lp + 2] = '0';
-	}
-	scope_write_home_suffix(frame);
-}
      fd4:	df 91       	pop	r29
      fd6:	cf 91       	pop	r28
      fd8:	1f 91       	pop	r17
@@ -1194,17 +977,10 @@ static inline void scope_write_home_suffix(char *frame)
      fe4:	08 95       	ret
 
 00000fe6 <scope_get_sample>:
-	}
-}
-
-uint16_t scope_get_sample(uint16_t sample_idx)
-{
-	if (sample_idx < BLOCK_SIZE) {
      fe6:	8f 3f       	cpi	r24, 0xFF	; 255
      fe8:	91 05       	cpc	r25, r1
      fea:	09 f0       	breq	.+2      	; 0xfee <scope_get_sample+0x8>
      fec:	70 f4       	brcc	.+28     	; 0x100a <scope_get_sample+0x24>
-		return pfbuff[lock_cbuff][sample_idx];
      fee:	e0 91 32 20 	lds	r30, 0x2032	; 0x802032 <__data_end>
      ff2:	f0 e0       	ldi	r31, 0x00	; 0
      ff4:	fe 2f       	mov	r31, r30
@@ -1218,13 +994,10 @@ uint16_t scope_get_sample(uint16_t sample_idx)
     1004:	80 81       	ld	r24, Z
     1006:	91 81       	ldd	r25, Z+1	; 0x01
     1008:	08 95       	ret
-	}
-	else if (sample_idx < SCOPE_SAMPLES_PER_FRAME) {
     100a:	81 15       	cp	r24, r1
     100c:	22 e0       	ldi	r18, 0x02	; 2
     100e:	92 07       	cpc	r25, r18
     1010:	88 f4       	brcc	.+34     	; 0x1034 <scope_get_sample+0x4e>
-		return pfbuff[lock_cbuff ^ 1u][sample_idx - BLOCK_SIZE];
     1012:	e0 91 32 20 	lds	r30, 0x2032	; 0x802032 <__data_end>
     1016:	21 e0       	ldi	r18, 0x01	; 1
     1018:	e2 27       	eor	r30, r18
@@ -1241,56 +1014,31 @@ uint16_t scope_get_sample(uint16_t sample_idx)
     102e:	80 81       	ld	r24, Z
     1030:	91 81       	ldd	r25, Z+1	; 0x01
     1032:	08 95       	ret
-	}
-	return DAC_OFFSET;
     1034:	80 e0       	ldi	r24, 0x00	; 0
     1036:	98 e0       	ldi	r25, 0x08	; 8
-}
     1038:	08 95       	ret
 
 0000103a <init_frame>:
-	scope_write_home_suffix(frame);
-}
-
-void init_frame(void)
-{
-	for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     103a:	80 e0       	ldi	r24, 0x00	; 0
     103c:	07 c0       	rjmp	.+14     	; 0x104c <init_frame+0x12>
-		scope_prev_row[col] = WAVE_ROW_FROM_DAC(DAC_OFFSET);
     103e:	e8 2f       	mov	r30, r24
     1040:	f0 e0       	ldi	r31, 0x00	; 0
     1042:	ef 5a       	subi	r30, 0xAF	; 175
     1044:	fb 4c       	sbci	r31, 0xCB	; 203
     1046:	97 e0       	ldi	r25, 0x07	; 7
     1048:	90 83       	st	Z, r25
-	scope_write_home_suffix(frame);
-}
-
-void init_frame(void)
-{
-	for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     104a:	8f 5f       	subi	r24, 0xFF	; 255
     104c:	88 23       	and	r24, r24
     104e:	bc f7       	brge	.-18     	; 0x103e <init_frame+0x4>
-		scope_prev_row[col] = WAVE_ROW_FROM_DAC(DAC_OFFSET);
-	}
-
-	init_one_frame(scope_frame_bank[0]);
     1050:	8a e9       	ldi	r24, 0x9A	; 154
     1052:	90 e2       	ldi	r25, 0x20	; 32
     1054:	0e 94 1a 07 	call	0xe34	; 0xe34 <init_one_frame>
-	init_one_frame(scope_frame_bank[1]);
     1058:	84 ec       	ldi	r24, 0xC4	; 196
     105a:	99 e2       	ldi	r25, 0x29	; 41
     105c:	0e 94 1a 07 	call	0xe34	; 0xe34 <init_one_frame>
     1060:	08 95       	ret
 
 00001062 <scope_update_wave>:
-}
-
-void scope_update_wave(void)
-{
     1062:	af 92       	push	r10
     1064:	bf 92       	push	r11
     1066:	cf 92       	push	r12
@@ -1301,12 +1049,6 @@ void scope_update_wave(void)
     1070:	1f 93       	push	r17
     1072:	cf 93       	push	r28
     1074:	df 93       	push	r29
-	}
-}
-
-static inline char *scope_build_text(void)
-{
-	return &SCOPE_FRAME_BUILD_PTR[0];
     1076:	20 91 07 20 	lds	r18, 0x2007	; 0x802007 <scope_frame_build>
     107a:	8a e2       	ldi	r24, 0x2A	; 42
     107c:	99 e0       	ldi	r25, 0x09	; 9
@@ -1317,33 +1059,19 @@ static inline char *scope_build_text(void)
     1086:	11 24       	eor	r1, r1
     1088:	c6 56       	subi	r28, 0x66	; 102
     108a:	df 4d       	sbci	r29, 0xDF	; 223
-}
-
-void scope_update_wave(void)
-{
-	char *text = scope_build_text();
-	scope_seq++;
     108c:	80 91 40 20 	lds	r24, 0x2040	; 0x802040 <scope_seq>
     1090:	8f 5f       	subi	r24, 0xFF	; 255
     1092:	80 93 40 20 	sts	0x2040, r24	; 0x802040 <scope_seq>
-
-	// find first rising zero-crossing
-	uint16_t trigger_offset = 0;
-	uint16_t search_limit = SCOPE_SAMPLES_PER_FRAME - SCOPE_VISIBLE_SAMPLES;
-	for (uint16_t i = 0; i < search_limit; ++i) {
     1096:	00 e0       	ldi	r16, 0x00	; 0
     1098:	10 e0       	ldi	r17, 0x00	; 0
     109a:	10 c0       	rjmp	.+32     	; 0x10bc <scope_update_wave+0x5a>
-		uint16_t s0 = scope_get_sample(i);
     109c:	c8 01       	movw	r24, r16
     109e:	0e 94 f3 07 	call	0xfe6	; 0xfe6 <scope_get_sample>
     10a2:	7c 01       	movw	r14, r24
-		uint16_t s1 = scope_get_sample(i + 1);
     10a4:	0f 5f       	subi	r16, 0xFF	; 255
     10a6:	1f 4f       	sbci	r17, 0xFF	; 255
     10a8:	c8 01       	movw	r24, r16
     10aa:	0e 94 f3 07 	call	0xfe6	; 0xfe6 <scope_get_sample>
-		if (s0 < DAC_OFFSET && s1 >= DAC_OFFSET) {
     10ae:	e1 14       	cp	r14, r1
     10b0:	28 e0       	ldi	r18, 0x08	; 8
     10b2:	f2 06       	cpc	r15, r18
@@ -1351,41 +1079,20 @@ void scope_update_wave(void)
     10b6:	81 15       	cp	r24, r1
     10b8:	98 40       	sbci	r25, 0x08	; 8
     10ba:	30 f4       	brcc	.+12     	; 0x10c8 <scope_update_wave+0x66>
-	scope_seq++;
-
-	// find first rising zero-crossing
-	uint16_t trigger_offset = 0;
-	uint16_t search_limit = SCOPE_SAMPLES_PER_FRAME - SCOPE_VISIBLE_SAMPLES;
-	for (uint16_t i = 0; i < search_limit; ++i) {
     10bc:	0f 3f       	cpi	r16, 0xFF	; 255
     10be:	11 05       	cpc	r17, r1
     10c0:	69 f3       	breq	.-38     	; 0x109c <scope_update_wave+0x3a>
     10c2:	60 f3       	brcs	.-40     	; 0x109c <scope_update_wave+0x3a>
-{
-	char *text = scope_build_text();
-	scope_seq++;
-
-	// find first rising zero-crossing
-	uint16_t trigger_offset = 0;
     10c4:	00 e0       	ldi	r16, 0x00	; 0
     10c6:	10 e0       	ldi	r17, 0x00	; 0
-	scope_ready = 1;
-}
-
-static inline void scope_clear_wave_rows(char *text)
-{
-	for (uint8_t row = 0; row < SCOPE_WAVE_ROWS; ++row) {
     10c8:	40 e0       	ldi	r20, 0x00	; 0
     10ca:	11 c0       	rjmp	.+34     	; 0x10ee <scope_update_wave+0x8c>
-		char *line = &text[row * SCOPE_STRIDE];
     10cc:	b2 e8       	ldi	r27, 0x82	; 130
     10ce:	4b 9f       	mul	r20, r27
     10d0:	90 01       	movw	r18, r0
     10d2:	11 24       	eor	r1, r1
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     10d4:	80 e0       	ldi	r24, 0x00	; 0
     10d6:	08 c0       	rjmp	.+16     	; 0x10e8 <scope_update_wave+0x86>
-			line[col] = SCOPE_CHAR_BG;
     10d8:	f9 01       	movw	r30, r18
     10da:	e8 0f       	add	r30, r24
     10dc:	f1 1d       	adc	r31, r1
@@ -1393,33 +1100,14 @@ static inline void scope_clear_wave_rows(char *text)
     10e0:	fd 1f       	adc	r31, r29
     10e2:	90 e2       	ldi	r25, 0x20	; 32
     10e4:	90 83       	st	Z, r25
-
-static inline void scope_clear_wave_rows(char *text)
-{
-	for (uint8_t row = 0; row < SCOPE_WAVE_ROWS; ++row) {
-		char *line = &text[row * SCOPE_STRIDE];
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     10e6:	8f 5f       	subi	r24, 0xFF	; 255
     10e8:	88 23       	and	r24, r24
     10ea:	b4 f7       	brge	.-20     	; 0x10d8 <scope_update_wave+0x76>
-	scope_ready = 1;
-}
-
-static inline void scope_clear_wave_rows(char *text)
-{
-	for (uint8_t row = 0; row < SCOPE_WAVE_ROWS; ++row) {
     10ec:	4f 5f       	subi	r20, 0xFF	; 255
     10ee:	40 31       	cpi	r20, 0x10	; 16
     10f0:	68 f3       	brcs	.-38     	; 0x10cc <scope_update_wave+0x6a>
-
-static inline void scope_restore_static_rows(char *text)
-{
-	if (SCOPE_WAVE_ROWS < SCOPE_ROWS) {
-		char *sep = &text[SCOPE_WAVE_ROWS * SCOPE_STRIDE];
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     10f2:	80 e0       	ldi	r24, 0x00	; 0
     10f4:	09 c0       	rjmp	.+18     	; 0x1108 <scope_update_wave+0xa6>
-			sep[col] = SCOPE_CHAR_ZERO;
     10f6:	e8 2f       	mov	r30, r24
     10f8:	f0 e0       	ldi	r31, 0x00	; 0
     10fa:	e0 5e       	subi	r30, 0xE0	; 224
@@ -1428,52 +1116,26 @@ static inline void scope_restore_static_rows(char *text)
     1100:	fd 1f       	adc	r31, r29
     1102:	9d e2       	ldi	r25, 0x2D	; 45
     1104:	90 83       	st	Z, r25
-
-static inline void scope_restore_static_rows(char *text)
-{
-	if (SCOPE_WAVE_ROWS < SCOPE_ROWS) {
-		char *sep = &text[SCOPE_WAVE_ROWS * SCOPE_STRIDE];
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     1106:	8f 5f       	subi	r24, 0xFF	; 255
     1108:	88 23       	and	r24, r24
     110a:	ac f7       	brge	.-22     	; 0x10f6 <scope_update_wave+0x94>
-		}
-	}
-
-	// info row
-	if (SCOPE_INFO_ROW < SCOPE_ROWS) {
-		char *info = &text[SCOPE_INFO_ROW * SCOPE_STRIDE];
     110c:	7e 01       	movw	r14, r28
     110e:	ee e5       	ldi	r30, 0x5E	; 94
     1110:	ee 1a       	sub	r14, r30
     1112:	e7 ef       	ldi	r30, 0xF7	; 247
     1114:	fe 0a       	sbc	r15, r30
-
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     1116:	80 e0       	ldi	r24, 0x00	; 0
     1118:	06 c0       	rjmp	.+12     	; 0x1126 <scope_update_wave+0xc4>
-			info[col] = SCOPE_CHAR_BG;
     111a:	f7 01       	movw	r30, r14
     111c:	e8 0f       	add	r30, r24
     111e:	f1 1d       	adc	r31, r1
     1120:	90 e2       	ldi	r25, 0x20	; 32
     1122:	90 83       	st	Z, r25
-
-	// info row
-	if (SCOPE_INFO_ROW < SCOPE_ROWS) {
-		char *info = &text[SCOPE_INFO_ROW * SCOPE_STRIDE];
-
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     1124:	8f 5f       	subi	r24, 0xFF	; 255
     1126:	88 23       	and	r24, r24
     1128:	c4 f7       	brge	.-16     	; 0x111a <scope_update_wave+0xb8>
     112a:	20 e0       	ldi	r18, 0x00	; 0
     112c:	0b c0       	rjmp	.+22     	; 0x1144 <scope_update_wave+0xe2>
-			info[col] = SCOPE_CHAR_BG;
-		}
-
-		for (uint8_t pos = 0; pos < SCOPE_INFO_LABEL_LEN; ++pos) {
-			info[pos] = SCOPE_INFO_LABEL[pos];
     112e:	82 2f       	mov	r24, r18
     1130:	90 e0       	ldi	r25, 0x00	; 0
     1132:	f7 01       	movw	r30, r14
@@ -1484,35 +1146,21 @@ static inline void scope_restore_static_rows(char *text)
     113c:	bf 4d       	sbci	r27, 0xDF	; 223
     113e:	8c 91       	ld	r24, X
     1140:	80 83       	st	Z, r24
-
-		for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
-			info[col] = SCOPE_CHAR_BG;
-		}
-
-		for (uint8_t pos = 0; pos < SCOPE_INFO_LABEL_LEN; ++pos) {
     1142:	2f 5f       	subi	r18, 0xFF	; 255
     1144:	2f 30       	cpi	r18, 0x0F	; 15
     1146:	98 f3       	brcs	.-26     	; 0x112e <scope_update_wave+0xcc>
-			info[pos] = SCOPE_INFO_LABEL[pos];
-		}
-
-		info[SCOPE_INFO_VOICE_POS] = (char)('0' + n_active);
     1148:	80 91 3c 20 	lds	r24, 0x203C	; 0x80203c <n_active>
     114c:	80 5d       	subi	r24, 0xD0	; 208
     114e:	fe 01       	movw	r30, r28
     1150:	ef 54       	subi	r30, 0x4F	; 79
     1152:	f7 4f       	sbci	r31, 0xF7	; 247
     1154:	80 83       	st	Z, r24
-
-		info[SCOPE_SEQ_LABEL_POS + 0] = 'S';
     1156:	83 e5       	ldi	r24, 0x53	; 83
     1158:	32 96       	adiw	r30, 0x02	; 2
     115a:	80 83       	st	Z, r24
-		info[SCOPE_SEQ_LABEL_POS + 1] = ':';
     115c:	3a e3       	ldi	r19, 0x3A	; 58
     115e:	31 96       	adiw	r30, 0x01	; 1
     1160:	30 83       	st	Z, r19
-		info[SCOPE_SEQ_DIGIT_POS] = (char)('0' + (scope_seq % 10u));
     1162:	90 91 40 20 	lds	r25, 0x2040	; 0x802040 <scope_seq>
     1166:	8d ec       	ldi	r24, 0xCD	; 205
     1168:	98 9f       	mul	r25, r24
@@ -1531,19 +1179,13 @@ static inline void scope_restore_static_rows(char *text)
     1182:	80 5d       	subi	r24, 0xD0	; 208
     1184:	31 96       	adiw	r30, 0x01	; 1
     1186:	80 83       	st	Z, r24
-
-		// Wave type
-		uint8_t wp = SCOPE_SEQ_DIGIT_POS + 2u;
-		info[wp + 0] = 'W';
     1188:	87 e5       	ldi	r24, 0x57	; 87
     118a:	d7 01       	movw	r26, r14
     118c:	55 96       	adiw	r26, 0x15	; 21
     118e:	8c 93       	st	X, r24
     1190:	55 97       	sbiw	r26, 0x15	; 21
-		info[wp + 1] = ':';
     1192:	56 96       	adiw	r26, 0x16	; 22
     1194:	3c 93       	st	X, r19
-		switch (cwave) {
     1196:	80 91 3f 20 	lds	r24, 0x203F	; 0x80203f <cwave>
     119a:	81 30       	cpi	r24, 0x01	; 1
     119c:	71 f0       	breq	.+28     	; 0x11ba <scope_update_wave+0x158>
@@ -1553,7 +1195,6 @@ static inline void scope_restore_static_rows(char *text)
     11a4:	83 30       	cpi	r24, 0x03	; 3
     11a6:	f1 f0       	breq	.+60     	; 0x11e4 <scope_update_wave+0x182>
     11a8:	2a c0       	rjmp	.+84     	; 0x11fe <scope_update_wave+0x19c>
-		case SINE:     info[wp+2]='S'; info[wp+3]='I'; info[wp+4]='N'; break;
     11aa:	83 e5       	ldi	r24, 0x53	; 83
     11ac:	f7 01       	movw	r30, r14
     11ae:	87 8b       	std	Z+23, r24	; 0x17
@@ -1562,7 +1203,6 @@ static inline void scope_restore_static_rows(char *text)
     11b4:	8e e4       	ldi	r24, 0x4E	; 78
     11b6:	81 8f       	std	Z+25, r24	; 0x19
     11b8:	27 c0       	rjmp	.+78     	; 0x1208 <scope_update_wave+0x1a6>
-		case TRIANGLE: info[wp+2]='T'; info[wp+3]='R'; info[wp+4]='I'; break;
     11ba:	84 e5       	ldi	r24, 0x54	; 84
     11bc:	d7 01       	movw	r26, r14
     11be:	57 96       	adiw	r26, 0x17	; 23
@@ -1576,7 +1216,6 @@ static inline void scope_restore_static_rows(char *text)
     11ce:	59 96       	adiw	r26, 0x19	; 25
     11d0:	8c 93       	st	X, r24
     11d2:	1a c0       	rjmp	.+52     	; 0x1208 <scope_update_wave+0x1a6>
-		case SAWTOOTH: info[wp+2]='S'; info[wp+3]='A'; info[wp+4]='W'; break;
     11d4:	83 e5       	ldi	r24, 0x53	; 83
     11d6:	f7 01       	movw	r30, r14
     11d8:	87 8b       	std	Z+23, r24	; 0x17
@@ -1585,7 +1224,6 @@ static inline void scope_restore_static_rows(char *text)
     11de:	87 e5       	ldi	r24, 0x57	; 87
     11e0:	81 8f       	std	Z+25, r24	; 0x19
     11e2:	12 c0       	rjmp	.+36     	; 0x1208 <scope_update_wave+0x1a6>
-		case SQUARE:   info[wp+2]='S'; info[wp+3]='Q'; info[wp+4]='R'; break;
     11e4:	83 e5       	ldi	r24, 0x53	; 83
     11e6:	d7 01       	movw	r26, r14
     11e8:	57 96       	adiw	r26, 0x17	; 23
@@ -1599,27 +1237,19 @@ static inline void scope_restore_static_rows(char *text)
     11f8:	59 96       	adiw	r26, 0x19	; 25
     11fa:	8c 93       	st	X, r24
     11fc:	05 c0       	rjmp	.+10     	; 0x1208 <scope_update_wave+0x1a6>
-		default:       info[wp+2]='?'; info[wp+3]='?'; info[wp+4]='?'; break;
     11fe:	8f e3       	ldi	r24, 0x3F	; 63
     1200:	f7 01       	movw	r30, r14
     1202:	87 8b       	std	Z+23, r24	; 0x17
     1204:	80 8f       	std	Z+24, r24	; 0x18
     1206:	81 8f       	std	Z+25, r24	; 0x19
-		}
-
-		// Vibrato
-		uint8_t vp = wp + 6u;
-		info[vp + 0] = 'V';
     1208:	86 e5       	ldi	r24, 0x56	; 86
     120a:	d7 01       	movw	r26, r14
     120c:	5b 96       	adiw	r26, 0x1b	; 27
     120e:	8c 93       	st	X, r24
     1210:	5b 97       	sbiw	r26, 0x1b	; 27
-		info[vp + 1] = ':';
     1212:	8a e3       	ldi	r24, 0x3A	; 58
     1214:	5c 96       	adiw	r26, 0x1c	; 28
     1216:	8c 93       	st	X, r24
-		info[vp + 2] = vibrato_on ? '1' : '0';
     1218:	80 91 37 20 	lds	r24, 0x2037	; 0x802037 <vibrato_on>
     121c:	88 23       	and	r24, r24
     121e:	11 f0       	breq	.+4      	; 0x1224 <scope_update_wave+0x1c2>
@@ -1628,10 +1258,6 @@ static inline void scope_restore_static_rows(char *text)
     1224:	80 e3       	ldi	r24, 0x30	; 48
     1226:	f7 01       	movw	r30, r14
     1228:	85 8f       	std	Z+29, r24	; 0x1d
-
-		// ADSR
-		uint8_t ap = vp + 4u;
-		info[ap + 0] = 'A'; info[ap + 1] = ':';
     122a:	81 e4       	ldi	r24, 0x41	; 65
     122c:	87 8f       	std	Z+31, r24	; 0x1f
     122e:	0f 2e       	mov	r0, r31
@@ -1639,7 +1265,6 @@ static inline void scope_restore_static_rows(char *text)
     1232:	df 2e       	mov	r13, r31
     1234:	f0 2d       	mov	r31, r0
     1236:	d0 a2       	std	Z+32, r13	; 0x20
-		scope_write_uint(&info[ap + 2], pgm_read_word(&adsr_ms[0][adsr_idx[0]]), 4);
     1238:	0f 2e       	mov	r0, r31
     123a:	f3 e0       	ldi	r31, 0x03	; 3
     123c:	af 2e       	mov	r10, r31
@@ -1659,12 +1284,10 @@ static inline void scope_restore_static_rows(char *text)
     1258:	c7 01       	movw	r24, r14
     125a:	81 96       	adiw	r24, 0x21	; 33
     125c:	0e 94 cf 06 	call	0xd9e	; 0xd9e <scope_write_uint>
-		info[ap + 7] = 'D'; info[ap + 8] = ':';
     1260:	84 e4       	ldi	r24, 0x44	; 68
     1262:	f7 01       	movw	r30, r14
     1264:	86 a3       	std	Z+38, r24	; 0x26
     1266:	d7 a2       	std	Z+39, r13	; 0x27
-		scope_write_uint(&info[ap + 9], pgm_read_word(&adsr_ms[1][adsr_idx[1]]), 4);
     1268:	d5 01       	movw	r26, r10
     126a:	11 96       	adiw	r26, 0x01	; 1
     126c:	ec 91       	ld	r30, X
@@ -1680,12 +1303,10 @@ static inline void scope_restore_static_rows(char *text)
     1280:	c7 01       	movw	r24, r14
     1282:	88 96       	adiw	r24, 0x28	; 40
     1284:	0e 94 cf 06 	call	0xd9e	; 0xd9e <scope_write_uint>
-		info[ap + 14] = 'R'; info[ap + 15] = ':';
     1288:	82 e5       	ldi	r24, 0x52	; 82
     128a:	f7 01       	movw	r30, r14
     128c:	85 a7       	std	Z+45, r24	; 0x2d
     128e:	d6 a6       	std	Z+46, r13	; 0x2e
-		scope_write_uint(&info[ap + 16], pgm_read_word(&adsr_ms[2][adsr_idx[2]]), 4);
     1290:	d5 01       	movw	r26, r10
     1292:	12 96       	adiw	r26, 0x02	; 2
     1294:	ec 91       	ld	r30, X
@@ -1701,24 +1322,13 @@ static inline void scope_restore_static_rows(char *text)
     12a8:	c7 01       	movw	r24, r14
     12aa:	8f 96       	adiw	r24, 0x2f	; 47
     12ac:	0e 94 cf 06 	call	0xd9e	; 0xd9e <scope_write_uint>
-
-		uint8_t lp = ap + 21u;
-		info[lp + 0] = 'F';
     12b0:	86 e4       	ldi	r24, 0x46	; 70
     12b2:	f7 01       	movw	r30, r14
     12b4:	84 ab       	std	Z+52, r24	; 0x34
-		info[lp + 1] = ':';
     12b6:	d5 aa       	std	Z+53, r13	; 0x35
-		info[lp + 2] = (char)('0' + lpf_idx);
     12b8:	80 91 36 20 	lds	r24, 0x2036	; 0x802036 <lpf_idx>
     12bc:	80 5d       	subi	r24, 0xD0	; 208
     12be:	86 ab       	std	Z+54, r24	; 0x36
-		}
-	}
-
-	scope_clear_wave_rows(text);
-	scope_restore_static_rows(text);
-	scope_write_home_suffix(SCOPE_FRAME_BUILD_PTR);
     12c0:	40 91 07 20 	lds	r20, 0x2007	; 0x802007 <scope_frame_build>
     12c4:	2a e2       	ldi	r18, 0x2A	; 42
     12c6:	39 e0       	ldi	r19, 0x09	; 9
@@ -1729,64 +1339,41 @@ static inline void scope_restore_static_rows(char *text)
     12d0:	11 24       	eor	r1, r1
     12d2:	86 56       	subi	r24, 0x66	; 102
     12d4:	9f 4d       	sbci	r25, 0xDF	; 223
-	return &SCOPE_FRAME_BUILD_PTR[0];
-}
-
-static inline void scope_write_home_suffix(char *frame)
-{
-	frame[SCOPE_FRAME_CHAR_BYTES + 0] = 0x1B;
     12d6:	fc 01       	movw	r30, r24
     12d8:	ec 5d       	subi	r30, 0xDC	; 220
     12da:	f6 4f       	sbci	r31, 0xF6	; 246
     12dc:	3b e1       	ldi	r19, 0x1B	; 27
     12de:	30 83       	st	Z, r19
-	frame[SCOPE_FRAME_CHAR_BYTES + 1] = '[';
     12e0:	31 96       	adiw	r30, 0x01	; 1
     12e2:	2b e5       	ldi	r18, 0x5B	; 91
     12e4:	20 83       	st	Z, r18
-	frame[SCOPE_FRAME_CHAR_BYTES + 2] = 'J';
     12e6:	31 96       	adiw	r30, 0x01	; 1
     12e8:	4a e4       	ldi	r20, 0x4A	; 74
     12ea:	40 83       	st	Z, r20
-	frame[SCOPE_FRAME_CHAR_BYTES + 3] = 0x1B;
     12ec:	31 96       	adiw	r30, 0x01	; 1
     12ee:	30 83       	st	Z, r19
-	frame[SCOPE_FRAME_CHAR_BYTES + 4] = '[';
     12f0:	31 96       	adiw	r30, 0x01	; 1
     12f2:	20 83       	st	Z, r18
-	frame[SCOPE_FRAME_CHAR_BYTES + 5] = 'H';
     12f4:	31 96       	adiw	r30, 0x01	; 1
     12f6:	28 e4       	ldi	r18, 0x48	; 72
     12f8:	20 83       	st	Z, r18
-
-	scope_clear_wave_rows(text);
-	scope_restore_static_rows(text);
-	scope_write_home_suffix(SCOPE_FRAME_BUILD_PTR);
-
-	uint8_t prev_col_row = WAVE_ROW_FROM_DAC(scope_get_sample(trigger_offset));
     12fa:	c8 01       	movw	r24, r16
     12fc:	0e 94 f3 07 	call	0xfe6	; 0xfe6 <scope_get_sample>
     1300:	8f e0       	ldi	r24, 0x0F	; 15
     1302:	f8 2e       	mov	r15, r24
     1304:	f9 1a       	sub	r15, r25
-	for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     1306:	e1 2c       	mov	r14, r1
     1308:	3e c0       	rjmp	.+124    	; 0x1386 <scope_update_wave+0x324>
-		uint16_t sample_idx = trigger_offset + (uint16_t)col * SCOPE_DECIMATE_FACTOR;
     130a:	ce 2c       	mov	r12, r14
     130c:	d1 2c       	mov	r13, r1
     130e:	c6 01       	movw	r24, r12
     1310:	88 0f       	add	r24, r24
     1312:	99 1f       	adc	r25, r25
-		uint16_t dac = scope_get_sample(sample_idx);
     1314:	80 0f       	add	r24, r16
     1316:	91 1f       	adc	r25, r17
     1318:	0e 94 f3 07 	call	0xfe6	; 0xfe6 <scope_get_sample>
-		uint8_t new_row = WAVE_ROW_FROM_DAC(dac);
     131c:	2f e0       	ldi	r18, 0x0F	; 15
     131e:	29 1b       	sub	r18, r25
-
-		text[new_row * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
     1320:	f6 01       	movw	r30, r12
     1322:	82 e8       	ldi	r24, 0x82	; 130
     1324:	28 9f       	mul	r18, r24
@@ -1797,19 +1384,13 @@ static inline void scope_write_home_suffix(char *frame)
     132e:	fd 1f       	adc	r31, r29
     1330:	8a e2       	ldi	r24, 0x2A	; 42
     1332:	80 83       	st	Z, r24
-
-		// vertical fill between this column and the previous column
-		if (col > 0) {
     1334:	ee 20       	and	r14, r14
     1336:	29 f1       	breq	.+74     	; 0x1382 <scope_update_wave+0x320>
-			if (prev_col_row < new_row) {
     1338:	f2 16       	cp	r15, r18
     133a:	88 f4       	brcc	.+34     	; 0x135e <scope_update_wave+0x2fc>
-				for (uint8_t r = prev_col_row + 1; r < new_row; ++r)
     133c:	81 e0       	ldi	r24, 0x01	; 1
     133e:	8f 0d       	add	r24, r15
     1340:	0b c0       	rjmp	.+22     	; 0x1358 <scope_update_wave+0x2f6>
-					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
     1342:	f6 01       	movw	r30, r12
     1344:	92 e8       	ldi	r25, 0x82	; 130
     1346:	89 9f       	mul	r24, r25
@@ -1820,25 +1401,15 @@ static inline void scope_write_home_suffix(char *frame)
     1350:	fd 1f       	adc	r31, r29
     1352:	9a e2       	ldi	r25, 0x2A	; 42
     1354:	90 83       	st	Z, r25
-		text[new_row * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
-
-		// vertical fill between this column and the previous column
-		if (col > 0) {
-			if (prev_col_row < new_row) {
-				for (uint8_t r = prev_col_row + 1; r < new_row; ++r)
     1356:	8f 5f       	subi	r24, 0xFF	; 255
     1358:	82 17       	cp	r24, r18
     135a:	98 f3       	brcs	.-26     	; 0x1342 <scope_update_wave+0x2e0>
     135c:	12 c0       	rjmp	.+36     	; 0x1382 <scope_update_wave+0x320>
-					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
-			} else if (new_row < prev_col_row) {
     135e:	2f 15       	cp	r18, r15
     1360:	80 f4       	brcc	.+32     	; 0x1382 <scope_update_wave+0x320>
-				for (uint8_t r = new_row + 1; r < prev_col_row; ++r)
     1362:	80 e1       	ldi	r24, 0x10	; 16
     1364:	89 1b       	sub	r24, r25
     1366:	0b c0       	rjmp	.+22     	; 0x137e <scope_update_wave+0x31c>
-					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
     1368:	f6 01       	movw	r30, r12
     136a:	a2 e8       	ldi	r26, 0x82	; 130
     136c:	8a 9f       	mul	r24, r26
@@ -1849,65 +1420,24 @@ static inline void scope_write_home_suffix(char *frame)
     1376:	fd 1f       	adc	r31, r29
     1378:	9a e2       	ldi	r25, 0x2A	; 42
     137a:	90 83       	st	Z, r25
-		if (col > 0) {
-			if (prev_col_row < new_row) {
-				for (uint8_t r = prev_col_row + 1; r < new_row; ++r)
-					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
-			} else if (new_row < prev_col_row) {
-				for (uint8_t r = new_row + 1; r < prev_col_row; ++r)
     137c:	8f 5f       	subi	r24, 0xFF	; 255
     137e:	8f 15       	cp	r24, r15
     1380:	98 f3       	brcs	.-26     	; 0x1368 <scope_update_wave+0x306>
-	scope_clear_wave_rows(text);
-	scope_restore_static_rows(text);
-	scope_write_home_suffix(SCOPE_FRAME_BUILD_PTR);
-
-	uint8_t prev_col_row = WAVE_ROW_FROM_DAC(scope_get_sample(trigger_offset));
-	for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     1382:	e3 94       	inc	r14
-				for (uint8_t r = new_row + 1; r < prev_col_row; ++r)
-					text[r * SCOPE_STRIDE + col] = SCOPE_CHAR_TRACE;
-			}
-		}
-
-		prev_col_row = new_row;
     1384:	f2 2e       	mov	r15, r18
-	scope_clear_wave_rows(text);
-	scope_restore_static_rows(text);
-	scope_write_home_suffix(SCOPE_FRAME_BUILD_PTR);
-
-	uint8_t prev_col_row = WAVE_ROW_FROM_DAC(scope_get_sample(trigger_offset));
-	for (uint8_t col = 0; col < SCOPE_COLS_USED; ++col) {
     1386:	ee 20       	and	r14, r14
     1388:	0c f0       	brlt	.+2      	; 0x138c <scope_update_wave+0x32a>
     138a:	bf cf       	rjmp	.-130    	; 0x130a <scope_update_wave+0x2a8>
-	frame[SCOPE_FRAME_CHAR_BYTES + 5] = 'H';
-}
-
-static inline void scope_publish_frame(void)
-{
-	uint8_t sreg = SREG;
     138c:	2f b7       	in	r18, 0x3f	; 63
-	cli();
     138e:	f8 94       	cli
-	scope_frame_tx = scope_frame_build;
     1390:	80 91 07 20 	lds	r24, 0x2007	; 0x802007 <scope_frame_build>
     1394:	80 93 41 20 	sts	0x2041, r24	; 0x802041 <scope_frame_tx>
-	scope_frame_build ^= 1u;
     1398:	80 91 07 20 	lds	r24, 0x2007	; 0x802007 <scope_frame_build>
     139c:	91 e0       	ldi	r25, 0x01	; 1
     139e:	89 27       	eor	r24, r25
     13a0:	80 93 07 20 	sts	0x2007, r24	; 0x802007 <scope_frame_build>
-	SREG = sreg;
     13a4:	2f bf       	out	0x3f, r18	; 63
-
-	scope_ready = 1;
     13a6:	90 93 34 20 	sts	0x2034, r25	; 0x802034 <scope_ready>
-
-		prev_col_row = new_row;
-	}
-
-	scope_publish_frame();
     13aa:	df 91       	pop	r29
     13ac:	cf 91       	pop	r28
     13ae:	1f 91       	pop	r17
@@ -1921,12 +1451,6 @@ static inline void scope_publish_frame(void)
     13be:	08 95       	ret
 
 000013c0 <__vector_6>:
-}
-
-//------------------------------------ISRs----------------------------------------
-// on transaction completion, signal main to fill other half
-// and swap immediately to precomputed half to avoid gaps in output
-ISR(DMA_CH0_vect){
     13c0:	1f 92       	push	r1
     13c2:	0f 92       	push	r0
     13c4:	0f b6       	in	r0, 0x3f	; 63
@@ -1956,30 +1480,23 @@ ISR(DMA_CH0_vect){
     13f4:	cf 93       	push	r28
     13f6:	ef 93       	push	r30
     13f8:	ff 93       	push	r31
- PORTC.OUTTGL = PIN1_bm;
     13fa:	82 e0       	ldi	r24, 0x02	; 2
     13fc:	80 93 47 06 	sts	0x0647, r24	; 0x800647 <__TEXT_REGION_LENGTH__+0x7de647>
- cbuff ^= 1; // toggle cbuff
     1400:	80 91 3e 20 	lds	r24, 0x203E	; 0x80203e <cbuff>
     1404:	c1 e0       	ldi	r28, 0x01	; 1
     1406:	8c 27       	eor	r24, r28
     1408:	80 93 3e 20 	sts	0x203E, r24	; 0x80203e <cbuff>
- DMA.INTFLAGS = DMA_CH0TRNIF_bm; // clear transfer flag
     140c:	00 e0       	ldi	r16, 0x00	; 0
     140e:	11 e0       	ldi	r17, 0x01	; 1
     1410:	f8 01       	movw	r30, r16
     1412:	c3 83       	std	Z+3, r28	; 0x03
- set_src_addr(cbuff); // update source address
     1414:	80 91 3e 20 	lds	r24, 0x203E	; 0x80203e <cbuff>
     1418:	0e 94 b3 06 	call	0xd66	; 0xd66 <set_src_addr>
- DMA.CH0.CTRLA |= DMA_CH_ENABLE_bm; // Start transfer of other half
     141c:	f8 01       	movw	r30, r16
     141e:	80 89       	ldd	r24, Z+16	; 0x10
     1420:	80 68       	ori	r24, 0x80	; 128
     1422:	80 8b       	std	Z+16, r24	; 0x10
- fillflag = 1;
     1424:	c0 93 3d 20 	sts	0x203D, r28	; 0x80203d <fillflag>
-}
     1428:	ff 91       	pop	r31
     142a:	ef 91       	pop	r30
     142c:	cf 91       	pop	r28
@@ -2008,15 +1525,10 @@ ISR(DMA_CH0_vect){
     145a:	18 95       	reti
 
 0000145c <ascii_to_note_id>:
-
-//------------------------------------helpers------------------------------------------
-int8_t ascii_to_note_id(uint8_t ch){
     145c:	cf 93       	push	r28
     145e:	df 93       	push	r29
-	if (ch == 's') {
     1460:	83 37       	cpi	r24, 0x73	; 115
     1462:	81 f4       	brne	.+32     	; 0x1484 <ascii_to_note_id+0x28>
-		cwave = (cwave + 1) % N_WAVES; // cycle wave type
     1464:	80 91 3f 20 	lds	r24, 0x203F	; 0x80203f <cwave>
     1468:	90 e0       	ldi	r25, 0x00	; 0
     146a:	01 96       	adiw	r24, 0x01	; 1
@@ -2029,26 +1541,18 @@ int8_t ascii_to_note_id(uint8_t ch){
     1478:	9f 6f       	ori	r25, 0xFF	; 255
     147a:	01 96       	adiw	r24, 0x01	; 1
     147c:	80 93 3f 20 	sts	0x203F, r24	; 0x80203f <cwave>
-		return -1;
     1480:	8f ef       	ldi	r24, 0xFF	; 255
     1482:	cc c0       	rjmp	.+408    	; 0x161c <ascii_to_note_id+0x1c0>
-	}
-	if (ch == 'a') {
     1484:	81 36       	cpi	r24, 0x61	; 97
     1486:	41 f4       	brne	.+16     	; 0x1498 <ascii_to_note_id+0x3c>
-		vibrato_on ^= 1; // toggle vibrato
     1488:	90 91 37 20 	lds	r25, 0x2037	; 0x802037 <vibrato_on>
     148c:	81 e0       	ldi	r24, 0x01	; 1
     148e:	89 27       	eor	r24, r25
     1490:	80 93 37 20 	sts	0x2037, r24	; 0x802037 <vibrato_on>
-		return -1;
     1494:	8f ef       	ldi	r24, 0xFF	; 255
     1496:	c2 c0       	rjmp	.+388    	; 0x161c <ascii_to_note_id+0x1c0>
-	}
-	if (ch == 'd') {
     1498:	84 36       	cpi	r24, 0x64	; 100
     149a:	e1 f4       	brne	.+56     	; 0x14d4 <ascii_to_note_id+0x78>
-		lpf_idx = (lpf_idx + 1) % N_LPF_PRESETS;
     149c:	40 91 36 20 	lds	r20, 0x2036	; 0x802036 <lpf_idx>
     14a0:	50 e0       	ldi	r21, 0x00	; 0
     14a2:	4f 5f       	subi	r20, 0xFF	; 255
@@ -2072,17 +1576,12 @@ int8_t ascii_to_note_id(uint8_t ch){
     14c8:	28 1b       	sub	r18, r24
     14ca:	39 0b       	sbc	r19, r25
     14cc:	20 93 36 20 	sts	0x2036, r18	; 0x802036 <lpf_idx>
-		return -1;
     14d0:	8f ef       	ldi	r24, 0xFF	; 255
     14d2:	a4 c0       	rjmp	.+328    	; 0x161c <ascii_to_note_id+0x1c0>
-	}
-	if (ch >= '1' && ch <= '3') {
     14d4:	4f ec       	ldi	r20, 0xCF	; 207
     14d6:	48 0f       	add	r20, r24
     14d8:	43 30       	cpi	r20, 0x03	; 3
     14da:	c0 f5       	brcc	.+112    	; 0x154c <ascii_to_note_id+0xf0>
-		uint8_t p = ch - '1'; // 0=attack, 1=decay, 2=release
-		adsr_idx[p] = (adsr_idx[p] + 1) % N_RATE_PRESETS;
     14dc:	50 e0       	ldi	r21, 0x00	; 0
     14de:	ea 01       	movw	r28, r20
     14e0:	cd 5f       	subi	r28, 0xFD	; 253
@@ -2118,7 +1617,6 @@ int8_t ascii_to_note_id(uint8_t ch){
     151e:	26 1b       	sub	r18, r22
     1520:	37 0b       	sbc	r19, r23
     1522:	28 83       	st	Y, r18
-		adsr_rate[p] = pgm_read_byte(&adsr_rates[p][adsr_idx[p]]);
     1524:	fa 01       	movw	r30, r20
     1526:	ee 0f       	add	r30, r30
     1528:	ff 1f       	adc	r31, r31
@@ -2137,13 +1635,8 @@ int8_t ascii_to_note_id(uint8_t ch){
     1542:	a0 50       	subi	r26, 0x00	; 0
     1544:	b0 4e       	sbci	r27, 0xE0	; 224
     1546:	ec 93       	st	X, r30
-		return -1;
     1548:	8f ef       	ldi	r24, 0xFF	; 255
     154a:	68 c0       	rjmp	.+208    	; 0x161c <ascii_to_note_id+0x1c0>
-	}
-	 uint8_t idx;
-	// interpret other characters
-	switch(ch){
     154c:	90 e0       	ldi	r25, 0x00	; 0
     154e:	fc 01       	movw	r30, r24
     1550:	bc 97       	sbiw	r30, 0x2c	; 44
@@ -2156,118 +1649,87 @@ int8_t ascii_to_note_id(uint8_t ch){
     155e:	ff 4f       	sbci	r31, 0xFF	; 255
     1560:	8f 4f       	sbci	r24, 0xFF	; 255
     1562:	0c 94 07 10 	jmp	0x200e	; 0x200e <__tablejump2__>
-		case 'e': idx = base + 0; break;
     1566:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     156a:	58 c0       	rjmp	.+176    	; 0x161c <ascii_to_note_id+0x1c0>
-		case '4': idx = base + 1; break;
     156c:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     1570:	8f 5f       	subi	r24, 0xFF	; 255
     1572:	54 c0       	rjmp	.+168    	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'r': idx = base + 2; break;
     1574:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     1578:	8e 5f       	subi	r24, 0xFE	; 254
     157a:	50 c0       	rjmp	.+160    	; 0x161c <ascii_to_note_id+0x1c0>
-		case '5': idx = base + 3; break;
     157c:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     1580:	8d 5f       	subi	r24, 0xFD	; 253
     1582:	4c c0       	rjmp	.+152    	; 0x161c <ascii_to_note_id+0x1c0>
-		case 't': idx = base + 4; break;
     1584:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     1588:	8c 5f       	subi	r24, 0xFC	; 252
     158a:	48 c0       	rjmp	.+144    	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'y': idx = base + 5; break;
     158c:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     1590:	8b 5f       	subi	r24, 0xFB	; 251
     1592:	44 c0       	rjmp	.+136    	; 0x161c <ascii_to_note_id+0x1c0>
-		case '7': idx = base + 6; break;
     1594:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     1598:	8a 5f       	subi	r24, 0xFA	; 250
     159a:	40 c0       	rjmp	.+128    	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'u': idx = base + 7; break;
     159c:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     15a0:	89 5f       	subi	r24, 0xF9	; 249
     15a2:	3c c0       	rjmp	.+120    	; 0x161c <ascii_to_note_id+0x1c0>
-		case '8': idx = base + 8; break;
     15a4:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     15a8:	88 5f       	subi	r24, 0xF8	; 248
     15aa:	38 c0       	rjmp	.+112    	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'i': idx = base + 9; break;
     15ac:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     15b0:	87 5f       	subi	r24, 0xF7	; 247
     15b2:	34 c0       	rjmp	.+104    	; 0x161c <ascii_to_note_id+0x1c0>
-		case '9': idx = base + 10; break;
     15b4:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     15b8:	86 5f       	subi	r24, 0xF6	; 246
     15ba:	30 c0       	rjmp	.+96     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'o': idx = base + 11; break;
     15bc:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     15c0:	85 5f       	subi	r24, 0xF5	; 245
     15c2:	2c c0       	rjmp	.+88     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'p': idx = base + 12; break;
     15c4:	80 91 06 20 	lds	r24, 0x2006	; 0x802006 <base>
     15c8:	84 5f       	subi	r24, 0xF4	; 244
     15ca:	28 c0       	rjmp	.+80     	; 0x161c <ascii_to_note_id+0x1c0>
-		// Key changes (octaves)
-		case ',': base = 0; return -1; // give access to lowest 3 notes
     15cc:	10 92 06 20 	sts	0x2006, r1	; 0x802006 <base>
     15d0:	8f ef       	ldi	r24, 0xFF	; 255
     15d2:	24 c0       	rjmp	.+72     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'z': base = 3; return -1; // C1
     15d4:	83 e0       	ldi	r24, 0x03	; 3
     15d6:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     15da:	8f ef       	ldi	r24, 0xFF	; 255
     15dc:	1f c0       	rjmp	.+62     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'x': base = 15; return -1; // C2
     15de:	8f e0       	ldi	r24, 0x0F	; 15
     15e0:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     15e4:	8f ef       	ldi	r24, 0xFF	; 255
     15e6:	1a c0       	rjmp	.+52     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'c': base = 27; return -1; // C3
     15e8:	8b e1       	ldi	r24, 0x1B	; 27
     15ea:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     15ee:	8f ef       	ldi	r24, 0xFF	; 255
     15f0:	15 c0       	rjmp	.+42     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'v': base = 39; return -1; // C4
     15f2:	87 e2       	ldi	r24, 0x27	; 39
     15f4:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     15f8:	8f ef       	ldi	r24, 0xFF	; 255
     15fa:	10 c0       	rjmp	.+32     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'b': base = 51; return -1; // C5
     15fc:	83 e3       	ldi	r24, 0x33	; 51
     15fe:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     1602:	8f ef       	ldi	r24, 0xFF	; 255
     1604:	0b c0       	rjmp	.+22     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'n': base = 63; return -1; // C6
     1606:	8f e3       	ldi	r24, 0x3F	; 63
     1608:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     160c:	8f ef       	ldi	r24, 0xFF	; 255
     160e:	06 c0       	rjmp	.+12     	; 0x161c <ascii_to_note_id+0x1c0>
-		case 'm': base = 75; return -1; // C7
     1610:	8b e4       	ldi	r24, 0x4B	; 75
     1612:	80 93 06 20 	sts	0x2006, r24	; 0x802006 <base>
     1616:	8f ef       	ldi	r24, 0xFF	; 255
     1618:	01 c0       	rjmp	.+2      	; 0x161c <ascii_to_note_id+0x1c0>
-		default: return -1;
     161a:	8f ef       	ldi	r24, 0xFF	; 255
-	}
-		return (int8_t)idx;
-}
     161c:	df 91       	pop	r29
     161e:	cf 91       	pop	r28
     1620:	08 95       	ret
 
 00001622 <update_voices_from_keybuff>:
-
-//------------------------------------Synth Functions------------------------------------------
-void update_voices_from_keybuff(void){
     1622:	0f 93       	push	r16
     1624:	1f 93       	push	r17
     1626:	cf 93       	push	r28
     1628:	df 93       	push	r29
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     162a:	80 e0       	ldi	r24, 0x00	; 0
     162c:	08 c0       	rjmp	.+16     	; 0x163e <update_voices_from_keybuff+0x1c>
-		voices[v].seen_this_block = 0; 	// clear seen flags
     162e:	90 e1       	ldi	r25, 0x10	; 16
     1630:	89 9f       	mul	r24, r25
     1632:	f0 01       	movw	r30, r0
@@ -2275,22 +1737,12 @@ void update_voices_from_keybuff(void){
     1636:	ef 52       	subi	r30, 0x2F	; 47
     1638:	fb 4c       	sbci	r31, 0xCB	; 203
     163a:	16 86       	std	Z+14, r1	; 0x0e
-		return (int8_t)idx;
-}
-
-//------------------------------------Synth Functions------------------------------------------
-void update_voices_from_keybuff(void){
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     163c:	8f 5f       	subi	r24, 0xFF	; 255
     163e:	83 30       	cpi	r24, 0x03	; 3
     1640:	b0 f3       	brcs	.-20     	; 0x162e <update_voices_from_keybuff+0xc>
     1642:	c0 e0       	ldi	r28, 0x00	; 0
     1644:	d0 e0       	ldi	r29, 0x00	; 0
     1646:	c9 c0       	rjmp	.+402    	; 0x17da <update_voices_from_keybuff+0x1b8>
-		voices[v].seen_this_block = 0; 	// clear seen flags
-	}
-	for (uint16_t i = 0; i < KEYLEN; ++i) {
-		if (keybuff[i] == 0) {
     1648:	fe 01       	movw	r30, r28
     164a:	ef 5f       	subi	r30, 0xFF	; 255
     164c:	f6 4c       	sbci	r31, 0xC6	; 198
@@ -2298,25 +1750,14 @@ void update_voices_from_keybuff(void){
     1650:	88 23       	and	r24, r24
     1652:	09 f4       	brne	.+2      	; 0x1656 <update_voices_from_keybuff+0x34>
     1654:	c1 c0       	rjmp	.+386    	; 0x17d8 <update_voices_from_keybuff+0x1b6>
-        continue; // no byte received here this block
-		}
-
-		int8_t note_id = ascii_to_note_id(keybuff[i]);
     1656:	0e 94 2e 0a 	call	0x145c	; 0x145c <ascii_to_note_id>
-		keybuff[i] = 0; // prevent cycling the same buffered keys if the user stops holding keys
     165a:	fe 01       	movw	r30, r28
     165c:	ef 5f       	subi	r30, 0xFF	; 255
     165e:	f6 4c       	sbci	r31, 0xC6	; 198
     1660:	10 82       	st	Z, r1
-
-		if (note_id < 0) {
     1662:	88 23       	and	r24, r24
     1664:	0c f4       	brge	.+2      	; 0x1668 <update_voices_from_keybuff+0x46>
     1666:	b8 c0       	rjmp	.+368    	; 0x17d8 <update_voices_from_keybuff+0x1b6>
-			 continue; // Skip non-notes
-		}
-
-		int8_t owner = note_owner[note_id];
     1668:	48 2f       	mov	r20, r24
     166a:	08 2e       	mov	r0, r24
     166c:	00 0c       	add	r0, r0
@@ -2325,16 +1766,11 @@ void update_voices_from_keybuff(void){
     1672:	ee 5b       	subi	r30, 0xBE	; 190
     1674:	ff 4d       	sbci	r31, 0xDF	; 223
     1676:	20 81       	ld	r18, Z
-
-		if (owner >= 0) {
     1678:	22 23       	and	r18, r18
     167a:	7c f1       	brlt	.+94     	; 0x16da <update_voices_from_keybuff+0xb8>
-			Voice *v = &voices[owner];
     167c:	02 2e       	mov	r0, r18
     167e:	00 0c       	add	r0, r0
     1680:	33 0b       	sbc	r19, r19
-
-			if (v->env_state != OFF) {
     1682:	f9 01       	movw	r30, r18
     1684:	e2 95       	swap	r30
     1686:	f2 95       	swap	r31
@@ -2347,7 +1783,6 @@ void update_voices_from_keybuff(void){
     1694:	90 81       	ld	r25, Z
     1696:	94 30       	cpi	r25, 0x04	; 4
     1698:	d9 f0       	breq	.+54     	; 0x16d0 <update_voices_from_keybuff+0xae>
-				v->seen_this_block = 1;
     169a:	f9 01       	movw	r30, r18
     169c:	e2 95       	swap	r30
     169e:	f2 95       	swap	r31
@@ -2359,14 +1794,11 @@ void update_voices_from_keybuff(void){
     16aa:	fb 4c       	sbci	r31, 0xCB	; 203
     16ac:	81 e0       	ldi	r24, 0x01	; 1
     16ae:	86 87       	std	Z+14, r24	; 0x0e
-				v->hold_ticks = HOLD_TICKS;
     16b0:	86 e0       	ldi	r24, 0x06	; 6
     16b2:	87 87       	std	Z+15, r24	; 0x0f
-				if (v->env_state == RELEASE) {
     16b4:	93 30       	cpi	r25, 0x03	; 3
     16b6:	09 f0       	breq	.+2      	; 0x16ba <update_voices_from_keybuff+0x98>
     16b8:	8f c0       	rjmp	.+286    	; 0x17d8 <update_voices_from_keybuff+0x1b6>
-					v->env_state = ATTACK; // retrigger from current gain
     16ba:	22 95       	swap	r18
     16bc:	32 95       	swap	r19
     16be:	30 7f       	andi	r19, 0xF0	; 240
@@ -2377,47 +1809,17 @@ void update_voices_from_keybuff(void){
     16c8:	ef 52       	subi	r30, 0x2F	; 47
     16ca:	fb 4c       	sbci	r31, 0xCB	; 203
     16cc:	10 82       	st	Z, r1
-				}
-				continue;
     16ce:	84 c0       	rjmp	.+264    	; 0x17d8 <update_voices_from_keybuff+0x1b6>
-			}
-			else {
-				note_owner[note_id] = -1; // stale, clear ownership
     16d0:	9f ef       	ldi	r25, 0xFF	; 255
     16d2:	fa 01       	movw	r30, r20
     16d4:	ee 5b       	subi	r30, 0xBE	; 190
     16d6:	ff 4d       	sbci	r31, 0xDF	; 223
     16d8:	90 83       	st	Z, r25
-		int8_t chosen = -1;
-		uint16_t best_rel_gain = UINT16_MAX;
-
-		// The received note is not already active, scan all voices once for best steal candidate.
-		// Prefer an OFF voice, otherwise, steal the RELEASE voice closest to silent (lowest gain)
-		for (uint8_t v = 0; v < N_VOICES; ++v) {
     16da:	90 e0       	ldi	r25, 0x00	; 0
-
-		// Steal constants
-		int8_t free_voice    = -1;
-		int8_t best_release  = -1;
-		int8_t chosen = -1;
-		uint16_t best_rel_gain = UINT16_MAX;
     16dc:	af ef       	ldi	r26, 0xFF	; 255
     16de:	bf ef       	ldi	r27, 0xFF	; 255
-			}
-		}
-
-		// Steal constants
-		int8_t free_voice    = -1;
-		int8_t best_release  = -1;
     16e0:	7f ef       	ldi	r23, 0xFF	; 255
-		int8_t chosen = -1;
-		uint16_t best_rel_gain = UINT16_MAX;
-
-		// The received note is not already active, scan all voices once for best steal candidate.
-		// Prefer an OFF voice, otherwise, steal the RELEASE voice closest to silent (lowest gain)
-		for (uint8_t v = 0; v < N_VOICES; ++v) {
     16e2:	21 c0       	rjmp	.+66     	; 0x1726 <update_voices_from_keybuff+0x104>
-			if (voices[v].env_state == OFF) {
     16e4:	29 2f       	mov	r18, r25
     16e6:	30 e0       	ldi	r19, 0x00	; 0
     16e8:	f9 01       	movw	r30, r18
@@ -2432,13 +1834,8 @@ void update_voices_from_keybuff(void){
     16fa:	60 81       	ld	r22, Z
     16fc:	64 30       	cpi	r22, 0x04	; 4
     16fe:	b1 f0       	breq	.+44     	; 0x172c <update_voices_from_keybuff+0x10a>
-				free_voice = (int8_t)v;
-				break;
-			}
-			if (voices[v].env_state == RELEASE) {
     1700:	63 30       	cpi	r22, 0x03	; 3
     1702:	81 f4       	brne	.+32     	; 0x1724 <update_voices_from_keybuff+0x102>
-				uint16_t g = voices[v].gain;
     1704:	22 95       	swap	r18
     1706:	32 95       	swap	r19
     1708:	30 7f       	andi	r19, 0xF0	; 240
@@ -2450,64 +1847,25 @@ void update_voices_from_keybuff(void){
     1714:	fb 4c       	sbci	r31, 0xCB	; 203
     1716:	22 85       	ldd	r18, Z+10	; 0x0a
     1718:	33 85       	ldd	r19, Z+11	; 0x0b
-				if (g <= best_rel_gain) {
     171a:	a2 17       	cp	r26, r18
     171c:	b3 07       	cpc	r27, r19
     171e:	10 f0       	brcs	.+4      	; 0x1724 <update_voices_from_keybuff+0x102>
-					best_rel_gain = g;
-					best_release = (int8_t)v;
     1720:	79 2f       	mov	r23, r25
-				break;
-			}
-			if (voices[v].env_state == RELEASE) {
-				uint16_t g = voices[v].gain;
-				if (g <= best_rel_gain) {
-					best_rel_gain = g;
     1722:	d9 01       	movw	r26, r18
-		int8_t chosen = -1;
-		uint16_t best_rel_gain = UINT16_MAX;
-
-		// The received note is not already active, scan all voices once for best steal candidate.
-		// Prefer an OFF voice, otherwise, steal the RELEASE voice closest to silent (lowest gain)
-		for (uint8_t v = 0; v < N_VOICES; ++v) {
     1724:	9f 5f       	subi	r25, 0xFF	; 255
     1726:	93 30       	cpi	r25, 0x03	; 3
     1728:	e8 f2       	brcs	.-70     	; 0x16e4 <update_voices_from_keybuff+0xc2>
-				note_owner[note_id] = -1; // stale, clear ownership
-			}
-		}
-
-		// Steal constants
-		int8_t free_voice    = -1;
     172a:	9f ef       	ldi	r25, 0xFF	; 255
-					best_release = (int8_t)v;
-				}
-			}
-		}
-
-		if (free_voice >= 0) {
     172c:	99 23       	and	r25, r25
     172e:	24 f4       	brge	.+8      	; 0x1738 <update_voices_from_keybuff+0x116>
-			chosen = free_voice; // use free OFF voice
-		}
-		else if (best_release >= 0) {
     1730:	77 23       	and	r23, r23
     1732:	0c f4       	brge	.+2      	; 0x1736 <update_voices_from_keybuff+0x114>
     1734:	51 c0       	rjmp	.+162    	; 0x17d8 <update_voices_from_keybuff+0x1b6>
-			chosen = best_release; // steal oldest RELEASED voice
     1736:	97 2f       	mov	r25, r23
-		}
-		else {
-			continue;
-		}
-
-		Voice *voice = &voices[chosen];
     1738:	e9 2f       	mov	r30, r25
     173a:	09 2e       	mov	r0, r25
     173c:	00 0c       	add	r0, r0
     173e:	ff 0b       	sbc	r31, r31
-
-		if (voice->env_state != OFF) {
     1740:	df 01       	movw	r26, r30
     1742:	a2 95       	swap	r26
     1744:	b2 95       	swap	r27
@@ -2520,7 +1878,6 @@ void update_voices_from_keybuff(void){
     1752:	2c 91       	ld	r18, X
     1754:	24 30       	cpi	r18, 0x04	; 4
     1756:	b9 f0       	breq	.+46     	; 0x1786 <update_voices_from_keybuff+0x164>
-			uint8_t old_id = voice->note_id;
     1758:	df 01       	movw	r26, r30
     175a:	a2 95       	swap	r26
     175c:	b2 95       	swap	r27
@@ -2532,7 +1889,6 @@ void update_voices_from_keybuff(void){
     1768:	bb 4c       	sbci	r27, 0xCB	; 203
     176a:	11 96       	adiw	r26, 0x01	; 1
     176c:	2c 91       	ld	r18, X
-			if (note_owner[old_id] == chosen) {
     176e:	30 e0       	ldi	r19, 0x00	; 0
     1770:	d9 01       	movw	r26, r18
     1772:	ae 5b       	subi	r26, 0xBE	; 190
@@ -2540,16 +1896,11 @@ void update_voices_from_keybuff(void){
     1776:	6c 91       	ld	r22, X
     1778:	96 13       	cpse	r25, r22
     177a:	05 c0       	rjmp	.+10     	; 0x1786 <update_voices_from_keybuff+0x164>
-				note_owner[old_id] = -1;
     177c:	d9 01       	movw	r26, r18
     177e:	ae 5b       	subi	r26, 0xBE	; 190
     1780:	bf 4d       	sbci	r27, 0xDF	; 223
     1782:	6f ef       	ldi	r22, 0xFF	; 255
     1784:	6c 93       	st	X, r22
-			}
-		}
-
-		voice->env_state = ATTACK;
     1786:	e2 95       	swap	r30
     1788:	f2 95       	swap	r31
     178a:	f0 7f       	andi	r31, 0xF0	; 240
@@ -2559,20 +1910,15 @@ void update_voices_from_keybuff(void){
     1792:	ef 52       	subi	r30, 0x2F	; 47
     1794:	fb 4c       	sbci	r31, 0xCB	; 203
     1796:	10 82       	st	Z, r1
-		voice->gain = 0;
     1798:	12 86       	std	Z+10, r1	; 0x0a
     179a:	13 86       	std	Z+11, r1	; 0x0b
-		voice->lpf_state = 0;
     179c:	14 86       	std	Z+12, r1	; 0x0c
     179e:	15 86       	std	Z+13, r1	; 0x0d
-		voice->note_id = (uint8_t)note_id;
     17a0:	81 83       	std	Z+1, r24	; 0x01
-		voice->phase = 0;
     17a2:	12 82       	std	Z+2, r1	; 0x02
     17a4:	13 82       	std	Z+3, r1	; 0x03
     17a6:	14 82       	std	Z+4, r1	; 0x04
     17a8:	15 82       	std	Z+5, r1	; 0x05
-		voice->step = freq_lut[note_id];
     17aa:	da 01       	movw	r26, r20
     17ac:	aa 0f       	add	r26, r26
     17ae:	bb 1f       	adc	r27, r27
@@ -2588,23 +1934,14 @@ void update_voices_from_keybuff(void){
     17c2:	17 83       	std	Z+7, r17	; 0x07
     17c4:	20 87       	std	Z+8, r18	; 0x08
     17c6:	31 87       	std	Z+9, r19	; 0x09
-		voice->seen_this_block = 1;
     17c8:	81 e0       	ldi	r24, 0x01	; 1
     17ca:	86 87       	std	Z+14, r24	; 0x0e
-		voice->hold_ticks = HOLD_TICKS;
     17cc:	86 e0       	ldi	r24, 0x06	; 6
     17ce:	87 87       	std	Z+15, r24	; 0x0f
-		note_owner[note_id] = chosen; // update note_owner table
     17d0:	fa 01       	movw	r30, r20
     17d2:	ee 5b       	subi	r30, 0xBE	; 190
     17d4:	ff 4d       	sbci	r31, 0xDF	; 223
     17d6:	90 83       	st	Z, r25
-//------------------------------------Synth Functions------------------------------------------
-void update_voices_from_keybuff(void){
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
-		voices[v].seen_this_block = 0; 	// clear seen flags
-	}
-	for (uint16_t i = 0; i < KEYLEN; ++i) {
     17d8:	21 96       	adiw	r28, 0x01	; 1
     17da:	c9 30       	cpi	r28, 0x09	; 9
     17dc:	d1 05       	cpc	r29, r1
@@ -2612,12 +1949,6 @@ void update_voices_from_keybuff(void){
     17e0:	33 cf       	rjmp	.-410    	; 0x1648 <update_voices_from_keybuff+0x26>
     17e2:	20 e0       	ldi	r18, 0x00	; 0
     17e4:	4b c0       	rjmp	.+150    	; 0x187c <update_voices_from_keybuff+0x25a>
-		note_owner[note_id] = chosen; // update note_owner table
-	}
-
-	// Transition released keys to RELEASE
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
-		if(voices[v].env_state == OFF || voices[v].env_state == RELEASE) continue;
     17e6:	82 2f       	mov	r24, r18
     17e8:	90 e0       	ldi	r25, 0x00	; 0
     17ea:	fc 01       	movw	r30, r24
@@ -2633,7 +1964,6 @@ void update_voices_from_keybuff(void){
     17fe:	33 50       	subi	r19, 0x03	; 3
     1800:	32 30       	cpi	r19, 0x02	; 2
     1802:	d8 f1       	brcs	.+118    	; 0x187a <update_voices_from_keybuff+0x258>
-		if(!voices[v].seen_this_block && voices[v].hold_ticks > 0){
     1804:	fc 01       	movw	r30, r24
     1806:	e2 95       	swap	r30
     1808:	f2 95       	swap	r31
@@ -2658,7 +1988,6 @@ void update_voices_from_keybuff(void){
     182e:	37 85       	ldd	r19, Z+15	; 0x0f
     1830:	33 23       	and	r19, r19
     1832:	61 f0       	breq	.+24     	; 0x184c <update_voices_from_keybuff+0x22a>
-			voices[v].hold_ticks -= 1; // decrement hold
     1834:	82 95       	swap	r24
     1836:	92 95       	swap	r25
     1838:	90 7f       	andi	r25, 0xF0	; 240
@@ -2671,8 +2000,6 @@ void update_voices_from_keybuff(void){
     1846:	31 50       	subi	r19, 0x01	; 1
     1848:	37 87       	std	Z+15, r19	; 0x0f
     184a:	17 c0       	rjmp	.+46     	; 0x187a <update_voices_from_keybuff+0x258>
-		}
-		else if (voices[v].hold_ticks == 0)
     184c:	fc 01       	movw	r30, r24
     184e:	e2 95       	swap	r30
     1850:	f2 95       	swap	r31
@@ -2685,8 +2012,6 @@ void update_voices_from_keybuff(void){
     185e:	37 85       	ldd	r19, Z+15	; 0x0f
     1860:	31 11       	cpse	r19, r1
     1862:	0b c0       	rjmp	.+22     	; 0x187a <update_voices_from_keybuff+0x258>
-		{
-			voices[v].env_state	= RELEASE;
     1864:	82 95       	swap	r24
     1866:	92 95       	swap	r25
     1868:	90 7f       	andi	r25, 0xF0	; 240
@@ -2698,22 +2023,10 @@ void update_voices_from_keybuff(void){
     1874:	fb 4c       	sbci	r31, 0xCB	; 203
     1876:	83 e0       	ldi	r24, 0x03	; 3
     1878:	80 83       	st	Z, r24
-		voice->hold_ticks = HOLD_TICKS;
-		note_owner[note_id] = chosen; // update note_owner table
-	}
-
-	// Transition released keys to RELEASE
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     187a:	2f 5f       	subi	r18, 0xFF	; 255
     187c:	23 30       	cpi	r18, 0x03	; 3
     187e:	08 f4       	brcc	.+2      	; 0x1882 <update_voices_from_keybuff+0x260>
     1880:	b2 cf       	rjmp	.-156    	; 0x17e6 <update_voices_from_keybuff+0x1c4>
-		else if (voices[v].hold_ticks == 0)
-		{
-			voices[v].env_state	= RELEASE;
-		}
-	}
-}
     1882:	df 91       	pop	r29
     1884:	cf 91       	pop	r28
     1886:	1f 91       	pop	r17
@@ -2721,8 +2034,6 @@ void update_voices_from_keybuff(void){
     188a:	08 95       	ret
 
 0000188c <blockfill>:
-
-void blockfill(uint16_t block[]){
     188c:	2f 92       	push	r2
     188e:	3f 92       	push	r3
     1890:	4f 92       	push	r4
@@ -2748,14 +2059,9 @@ void blockfill(uint16_t block[]){
     18b8:	de bf       	out	0x3e, r29	; 62
     18ba:	8f 87       	std	Y+15, r24	; 0x0f
     18bc:	98 8b       	std	Y+16, r25	; 0x10
-
-	// list all active voices
-	n_active = 0;
     18be:	10 92 3c 20 	sts	0x203C, r1	; 0x80203c <n_active>
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     18c2:	80 e0       	ldi	r24, 0x00	; 0
     18c4:	14 c0       	rjmp	.+40     	; 0x18ee <blockfill+0x62>
-		if (voices[v].env_state != OFF) {
     18c6:	20 e1       	ldi	r18, 0x10	; 16
     18c8:	82 9f       	mul	r24, r18
     18ca:	f0 01       	movw	r30, r0
@@ -2765,7 +2071,6 @@ void blockfill(uint16_t block[]){
     18d2:	90 81       	ld	r25, Z
     18d4:	94 30       	cpi	r25, 0x04	; 4
     18d6:	51 f0       	breq	.+20     	; 0x18ec <blockfill+0x60>
-			active_idx[n_active++] = v;
     18d8:	e0 91 3c 20 	lds	r30, 0x203C	; 0x80203c <n_active>
     18dc:	91 e0       	ldi	r25, 0x01	; 1
     18de:	9e 0f       	add	r25, r30
@@ -2774,27 +2079,13 @@ void blockfill(uint16_t block[]){
     18e6:	e2 51       	subi	r30, 0x12	; 18
     18e8:	fd 4c       	sbci	r31, 0xCD	; 205
     18ea:	80 83       	st	Z, r24
-
-void blockfill(uint16_t block[]){
-
-	// list all active voices
-	n_active = 0;
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     18ec:	8f 5f       	subi	r24, 0xFF	; 255
     18ee:	83 30       	cpi	r24, 0x03	; 3
     18f0:	50 f3       	brcs	.-44     	; 0x18c6 <blockfill+0x3a>
-		if (voices[v].env_state != OFF) {
-			active_idx[n_active++] = v;
-		}
-	}
-
-	if (n_active == 0) {
     18f2:	10 91 3c 20 	lds	r17, 0x203C	; 0x80203c <n_active>
     18f6:	11 23       	and	r17, r17
     18f8:	71 f0       	breq	.+28     	; 0x1916 <blockfill+0x8a>
     18fa:	14 c0       	rjmp	.+40     	; 0x1924 <blockfill+0x98>
-        for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
-            block[i] = DAC_OFFSET;
     18fc:	fc 01       	movw	r30, r24
     18fe:	ee 0f       	add	r30, r30
     1900:	ff 1f       	adc	r31, r31
@@ -2806,12 +2097,6 @@ void blockfill(uint16_t block[]){
     190c:	38 e0       	ldi	r19, 0x08	; 8
     190e:	20 83       	st	Z, r18
     1910:	31 83       	std	Z+1, r19	; 0x01
-			active_idx[n_active++] = v;
-		}
-	}
-
-	if (n_active == 0) {
-        for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
     1912:	01 96       	adiw	r24, 0x01	; 1
     1914:	02 c0       	rjmp	.+4      	; 0x191a <blockfill+0x8e>
     1916:	80 e0       	ldi	r24, 0x00	; 0
@@ -2821,12 +2106,6 @@ void blockfill(uint16_t block[]){
     191e:	71 f3       	breq	.-36     	; 0x18fc <blockfill+0x70>
     1920:	68 f3       	brcs	.-38     	; 0x18fc <blockfill+0x70>
     1922:	47 c2       	rjmp	.+1166   	; 0x1db2 <blockfill+0x526>
-            block[i] = DAC_OFFSET;
-        }
-        return;
-    }
-
-	const int16_t *wave = waves[cwave];
     1924:	e0 91 3f 20 	lds	r30, 0x203F	; 0x80203f <cwave>
     1928:	f0 e0       	ldi	r31, 0x00	; 0
     192a:	ee 0f       	add	r30, r30
@@ -2835,7 +2114,6 @@ void blockfill(uint16_t block[]){
     1930:	ff 4d       	sbci	r31, 0xDF	; 223
     1932:	c0 80       	ld	r12, Z
     1934:	d1 80       	ldd	r13, Z+1	; 0x01
-	int16_t recip = recip_table[n_active];
     1936:	e1 2f       	mov	r30, r17
     1938:	f0 e0       	ldi	r31, 0x00	; 0
     193a:	ee 0f       	add	r30, r30
@@ -2846,15 +2124,10 @@ void blockfill(uint16_t block[]){
     1944:	91 81       	ldd	r25, Z+1	; 0x01
     1946:	89 8b       	std	Y+17, r24	; 0x11
     1948:	9a 8b       	std	Y+18, r25	; 0x12
-
-	// compute modulated steps once per block
-	uint32_t mod_step[N_VOICES];
-	if (vibrato_on) {
     194a:	80 91 37 20 	lds	r24, 0x2037	; 0x802037 <vibrato_on>
     194e:	88 23       	and	r24, r24
     1950:	09 f4       	brne	.+2      	; 0x1954 <blockfill+0xc8>
     1952:	82 c0       	rjmp	.+260    	; 0x1a58 <blockfill+0x1cc>
-		lfo_phase += LFO_STEP;
     1954:	80 91 38 20 	lds	r24, 0x2038	; 0x802038 <lfo_phase>
     1958:	90 91 39 20 	lds	r25, 0x2039	; 0x802039 <lfo_phase+0x1>
     195c:	a0 91 3a 20 	lds	r26, 0x203A	; 0x80203a <lfo_phase+0x2>
@@ -2867,7 +2140,6 @@ void blockfill(uint16_t block[]){
     1970:	90 93 39 20 	sts	0x2039, r25	; 0x802039 <lfo_phase+0x1>
     1974:	a0 93 3a 20 	sts	0x203A, r26	; 0x80203a <lfo_phase+0x2>
     1978:	b0 93 3b 20 	sts	0x203B, r27	; 0x80203b <lfo_phase+0x3>
-		int16_t lfo_val = (int16_t)pgm_read_word(&sine_lut[(uint8_t)(lfo_phase >> 24)]);
     197c:	eb 2f       	mov	r30, r27
     197e:	f0 e0       	ldi	r31, 0x00	; 0
     1980:	ee 0f       	add	r30, r30
@@ -2878,10 +2150,8 @@ void blockfill(uint16_t block[]){
     198a:	94 91       	lpm	r25, Z
     198c:	e8 2e       	mov	r14, r24
     198e:	f9 2e       	mov	r15, r25
-		for (uint8_t k = 0; k < n_active; ++k) {
     1990:	00 e0       	ldi	r16, 0x00	; 0
     1992:	3e c0       	rjmp	.+124    	; 0x1a10 <blockfill+0x184>
-			uint32_t step = voices[active_idx[k]].step;
     1994:	e0 2f       	mov	r30, r16
     1996:	f0 e0       	ldi	r31, 0x00	; 0
     1998:	df 01       	movw	r26, r30
@@ -2900,8 +2170,6 @@ void blockfill(uint16_t block[]){
     19b2:	6d 90       	ld	r6, X+
     19b4:	7c 90       	ld	r7, X
     19b6:	19 97       	sbiw	r26, 0x09	; 9
-			// offset ≈ ±step/128 ≈ ±13 cents
-			int32_t offset = ((int32_t)(step >> 10) * lfo_val) >> 7;
     19b8:	a3 01       	movw	r20, r6
     19ba:	92 01       	movw	r18, r4
     19bc:	01 2e       	mov	r0, r17
@@ -2926,7 +2194,6 @@ void blockfill(uint16_t block[]){
     19e4:	87 95       	ror	r24
     19e6:	16 94       	lsr	r1
     19e8:	d1 f7       	brne	.-12     	; 0x19de <blockfill+0x152>
-			mod_step[k] = (uint32_t)((int32_t)step + offset);
     19ea:	48 0e       	add	r4, r24
     19ec:	59 1e       	adc	r5, r25
     19ee:	6a 1e       	adc	r6, r26
@@ -2945,23 +2212,11 @@ void blockfill(uint16_t block[]){
     1a08:	51 82       	std	Z+1, r5	; 0x01
     1a0a:	62 82       	std	Z+2, r6	; 0x02
     1a0c:	73 82       	std	Z+3, r7	; 0x03
-	// compute modulated steps once per block
-	uint32_t mod_step[N_VOICES];
-	if (vibrato_on) {
-		lfo_phase += LFO_STEP;
-		int16_t lfo_val = (int16_t)pgm_read_word(&sine_lut[(uint8_t)(lfo_phase >> 24)]);
-		for (uint8_t k = 0; k < n_active; ++k) {
     1a0e:	0f 5f       	subi	r16, 0xFF	; 255
     1a10:	01 17       	cp	r16, r17
     1a12:	08 f4       	brcc	.+2      	; 0x1a16 <blockfill+0x18a>
     1a14:	bf cf       	rjmp	.-130    	; 0x1994 <blockfill+0x108>
     1a16:	23 c0       	rjmp	.+70     	; 0x1a5e <blockfill+0x1d2>
-			int32_t offset = ((int32_t)(step >> 10) * lfo_val) >> 7;
-			mod_step[k] = (uint32_t)((int32_t)step + offset);
-		}
-	} else {
-		for (uint8_t k = 0; k < n_active; ++k) {
-			mod_step[k] = voices[active_idx[k]].step;
     1a18:	82 2f       	mov	r24, r18
     1a1a:	90 e0       	ldi	r25, 0x00	; 0
     1a1c:	fc 01       	movw	r30, r24
@@ -2992,22 +2247,11 @@ void blockfill(uint16_t block[]){
     1a4e:	51 83       	std	Z+1, r21	; 0x01
     1a50:	62 83       	std	Z+2, r22	; 0x02
     1a52:	73 83       	std	Z+3, r23	; 0x03
-			// offset ≈ ±step/128 ≈ ±13 cents
-			int32_t offset = ((int32_t)(step >> 10) * lfo_val) >> 7;
-			mod_step[k] = (uint32_t)((int32_t)step + offset);
-		}
-	} else {
-		for (uint8_t k = 0; k < n_active; ++k) {
     1a54:	2f 5f       	subi	r18, 0xFF	; 255
     1a56:	01 c0       	rjmp	.+2      	; 0x1a5a <blockfill+0x1ce>
     1a58:	20 e0       	ldi	r18, 0x00	; 0
     1a5a:	21 17       	cp	r18, r17
     1a5c:	e8 f2       	brcs	.-70     	; 0x1a18 <blockfill+0x18c>
-			mod_step[k] = voices[active_idx[k]].step;
-		}
-	}
-
-	uint16_t alpha = pgm_read_word(&lpf_alpha[lpf_idx]);
     1a5e:	e0 91 36 20 	lds	r30, 0x2036	; 0x802036 <lpf_idx>
     1a62:	f0 e0       	ldi	r31, 0x00	; 0
     1a64:	ee 0f       	add	r30, r30
@@ -3016,13 +2260,9 @@ void blockfill(uint16_t block[]){
     1a6a:	fd 4f       	sbci	r31, 0xFD	; 253
     1a6c:	e5 90       	lpm	r14, Z+
     1a6e:	f4 90       	lpm	r15, Z
-	for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
     1a70:	21 2c       	mov	r2, r1
     1a72:	31 2c       	mov	r3, r1
     1a74:	99 c1       	rjmp	.+818    	; 0x1da8 <blockfill+0x51c>
-		int32_t mix = 0;
-		for (uint8_t k = 0; k < n_active; ++k) {
-			Voice *voice = &voices[active_idx[k]];
     1a76:	24 2f       	mov	r18, r20
     1a78:	30 e0       	ldi	r19, 0x00	; 0
     1a7a:	f9 01       	movw	r30, r18
@@ -3030,9 +2270,6 @@ void blockfill(uint16_t block[]){
     1a7e:	fd 4c       	sbci	r31, 0xCD	; 205
     1a80:	80 81       	ld	r24, Z
     1a82:	90 e0       	ldi	r25, 0x00	; 0
-			uint16_t gain;
-
-			switch (voice->env_state) {
     1a84:	fc 01       	movw	r30, r24
     1a86:	e2 95       	swap	r30
     1a88:	f2 95       	swap	r31
@@ -3054,8 +2291,6 @@ void blockfill(uint16_t block[]){
     1aa8:	09 f4       	brne	.+2      	; 0x1aac <blockfill+0x220>
     1aaa:	7f c0       	rjmp	.+254    	; 0x1baa <blockfill+0x31e>
     1aac:	48 c1       	rjmp	.+656    	; 0x1d3e <blockfill+0x4b2>
-			case ATTACK:
-				voice->gain += adsr_rate[0];
     1aae:	50 91 00 20 	lds	r21, 0x2000	; 0x802000 <__DATA_REGION_ORIGIN__>
     1ab2:	fc 01       	movw	r30, r24
     1ab4:	e2 95       	swap	r30
@@ -3072,11 +2307,9 @@ void blockfill(uint16_t block[]){
     1aca:	71 1d       	adc	r23, r1
     1acc:	62 87       	std	Z+10, r22	; 0x0a
     1ace:	73 87       	std	Z+11, r23	; 0x0b
-				if (voice->gain >= PEAK_GAIN_FP) {
     1ad0:	60 3f       	cpi	r22, 0xF0	; 240
     1ad2:	7f 47       	sbci	r23, 0x7F	; 127
     1ad4:	78 f0       	brcs	.+30     	; 0x1af4 <blockfill+0x268>
-					voice->gain = PEAK_GAIN_FP;
     1ad6:	fc 01       	movw	r30, r24
     1ad8:	e2 95       	swap	r30
     1ada:	f2 95       	swap	r31
@@ -3090,11 +2323,8 @@ void blockfill(uint16_t block[]){
     1aea:	7f e7       	ldi	r23, 0x7F	; 127
     1aec:	62 87       	std	Z+10, r22	; 0x0a
     1aee:	73 87       	std	Z+11, r23	; 0x0b
-					voice->env_state = DECAY;
     1af0:	51 e0       	ldi	r21, 0x01	; 1
     1af2:	50 83       	st	Z, r21
-				}
-				gain = voice->gain >> GAIN_FRAC;
     1af4:	fc 01       	movw	r30, r24
     1af6:	e2 95       	swap	r30
     1af8:	f2 95       	swap	r31
@@ -3115,10 +2345,7 @@ void blockfill(uint16_t block[]){
     1b16:	67 27       	eor	r22, r23
     1b18:	6d 87       	std	Y+13, r22	; 0x0d
     1b1a:	7e 87       	std	Y+14, r23	; 0x0e
-				break;
     1b1c:	91 c0       	rjmp	.+290    	; 0x1c40 <blockfill+0x3b4>
-			case DECAY:
-				if (voice->gain > SUSTAIN_GAIN_FP + adsr_rate[1]) {
     1b1e:	fc 01       	movw	r30, r24
     1b20:	e2 95       	swap	r30
     1b22:	f2 95       	swap	r31
@@ -3138,7 +2365,6 @@ void blockfill(uint16_t block[]){
     1b40:	e6 17       	cp	r30, r22
     1b42:	f7 07       	cpc	r31, r23
     1b44:	70 f4       	brcc	.+28     	; 0x1b62 <blockfill+0x2d6>
-					voice->gain -= adsr_rate[1];
     1b46:	fc 01       	movw	r30, r24
     1b48:	e2 95       	swap	r30
     1b4a:	f2 95       	swap	r31
@@ -3153,8 +2379,6 @@ void blockfill(uint16_t block[]){
     1b5c:	62 87       	std	Z+10, r22	; 0x0a
     1b5e:	73 87       	std	Z+11, r23	; 0x0b
     1b60:	0f c0       	rjmp	.+30     	; 0x1b80 <blockfill+0x2f4>
-				} else {
-					voice->gain = SUSTAIN_GAIN_FP;
     1b62:	fc 01       	movw	r30, r24
     1b64:	e2 95       	swap	r30
     1b66:	f2 95       	swap	r31
@@ -3168,11 +2392,8 @@ void blockfill(uint16_t block[]){
     1b76:	7d e5       	ldi	r23, 0x5D	; 93
     1b78:	62 87       	std	Z+10, r22	; 0x0a
     1b7a:	73 87       	std	Z+11, r23	; 0x0b
-					voice->env_state = SUSTAIN;
     1b7c:	52 e0       	ldi	r21, 0x02	; 2
     1b7e:	50 83       	st	Z, r21
-				}
-				gain = voice->gain >> GAIN_FRAC;
     1b80:	fc 01       	movw	r30, r24
     1b82:	e2 95       	swap	r30
     1b84:	f2 95       	swap	r31
@@ -3193,13 +2414,7 @@ void blockfill(uint16_t block[]){
     1ba2:	ef 27       	eor	r30, r31
     1ba4:	ed 87       	std	Y+13, r30	; 0x0d
     1ba6:	fe 87       	std	Y+14, r31	; 0x0e
-				break;
     1ba8:	4b c0       	rjmp	.+150    	; 0x1c40 <blockfill+0x3b4>
-			case SUSTAIN:
-				gain = SUSTAIN_GAIN;
-				break;
-			case RELEASE:
-				if (voice->gain > adsr_rate[2]) {
     1baa:	fc 01       	movw	r30, r24
     1bac:	e2 95       	swap	r30
     1bae:	f2 95       	swap	r31
@@ -3216,7 +2431,6 @@ void blockfill(uint16_t block[]){
     1bc6:	a6 17       	cp	r26, r22
     1bc8:	b7 07       	cpc	r27, r23
     1bca:	70 f4       	brcc	.+28     	; 0x1be8 <blockfill+0x35c>
-					voice->gain -= adsr_rate[2];
     1bcc:	fc 01       	movw	r30, r24
     1bce:	e2 95       	swap	r30
     1bd0:	f2 95       	swap	r31
@@ -3231,8 +2445,6 @@ void blockfill(uint16_t block[]){
     1be2:	62 87       	std	Z+10, r22	; 0x0a
     1be4:	73 87       	std	Z+11, r23	; 0x0b
     1be6:	13 c0       	rjmp	.+38     	; 0x1c0e <blockfill+0x382>
-				} else {
-					voice->gain = 0;
     1be8:	fc 01       	movw	r30, r24
     1bea:	e2 95       	swap	r30
     1bec:	f2 95       	swap	r31
@@ -3244,18 +2456,14 @@ void blockfill(uint16_t block[]){
     1bf8:	fb 4c       	sbci	r31, 0xCB	; 203
     1bfa:	12 86       	std	Z+10, r1	; 0x0a
     1bfc:	13 86       	std	Z+11, r1	; 0x0b
-					note_owner[voice->note_id] = -1;
     1bfe:	a1 81       	ldd	r26, Z+1	; 0x01
     1c00:	b0 e0       	ldi	r27, 0x00	; 0
     1c02:	ae 5b       	subi	r26, 0xBE	; 190
     1c04:	bf 4d       	sbci	r27, 0xDF	; 223
     1c06:	5f ef       	ldi	r21, 0xFF	; 255
     1c08:	5c 93       	st	X, r21
-					voice->env_state = OFF;
     1c0a:	54 e0       	ldi	r21, 0x04	; 4
     1c0c:	50 83       	st	Z, r21
-				}
-				gain = voice->gain >> GAIN_FRAC;
     1c0e:	fc 01       	movw	r30, r24
     1c10:	e2 95       	swap	r30
     1c12:	f2 95       	swap	r31
@@ -3276,24 +2484,11 @@ void blockfill(uint16_t block[]){
     1c30:	67 27       	eor	r22, r23
     1c32:	6d 87       	std	Y+13, r22	; 0x0d
     1c34:	7e 87       	std	Y+14, r23	; 0x0e
-				break;
     1c36:	04 c0       	rjmp	.+8      	; 0x1c40 <blockfill+0x3b4>
-					voice->env_state = SUSTAIN;
-				}
-				gain = voice->gain >> GAIN_FRAC;
-				break;
-			case SUSTAIN:
-				gain = SUSTAIN_GAIN;
     1c38:	ec ed       	ldi	r30, 0xDC	; 220
     1c3a:	f5 e0       	ldi	r31, 0x05	; 5
     1c3c:	ed 87       	std	Y+13, r30	; 0x0d
     1c3e:	fe 87       	std	Y+14, r31	; 0x0e
-			default:
-				continue;
-			}
-
-			// Oscillator step
-			voice->phase += mod_step[k];
     1c40:	22 0f       	add	r18, r18
     1c42:	33 1f       	adc	r19, r19
     1c44:	22 0f       	add	r18, r18
@@ -3329,8 +2524,6 @@ void blockfill(uint16_t block[]){
     1c80:	93 82       	std	Z+3, r9	; 0x03
     1c82:	a4 82       	std	Z+4, r10	; 0x04
     1c84:	b5 82       	std	Z+5, r11	; 0x05
-			uint8_t index = (uint8_t)(voice->phase >> PHASE_SHIFT);
-			int16_t s = (int16_t)pgm_read_word(&wave[index]);
     1c86:	eb 2d       	mov	r30, r11
     1c88:	f0 e0       	ldi	r31, 0x00	; 0
     1c8a:	ee 0f       	add	r30, r30
@@ -3340,15 +2533,11 @@ void blockfill(uint16_t block[]){
     1c92:	25 91       	lpm	r18, Z+
     1c94:	34 91       	lpm	r19, Z
     1c96:	b9 01       	movw	r22, r18
-
-			// 1-pole low-pass filter (alpha=256 is bypass)
-			if (alpha < 256u) {
     1c98:	ff ef       	ldi	r31, 0xFF	; 255
     1c9a:	ef 16       	cp	r14, r31
     1c9c:	f1 04       	cpc	r15, r1
     1c9e:	09 f0       	breq	.+2      	; 0x1ca2 <blockfill+0x416>
     1ca0:	d8 f4       	brcc	.+54     	; 0x1cd8 <blockfill+0x44c>
-				int16_t prev = voice->lpf_state;
     1ca2:	fc 01       	movw	r30, r24
     1ca4:	e2 95       	swap	r30
     1ca6:	f2 95       	swap	r31
@@ -3360,7 +2549,6 @@ void blockfill(uint16_t block[]){
     1cb2:	fb 4c       	sbci	r31, 0xCB	; 203
     1cb4:	a4 84       	ldd	r10, Z+12	; 0x0c
     1cb6:	b5 84       	ldd	r11, Z+13	; 0x0d
-				int32_t delta = ((int32_t)(s - prev) * (int16_t)alpha) >> LPF_SHIFT;
     1cb8:	2a 19       	sub	r18, r10
     1cba:	3b 09       	sbc	r19, r11
     1cbc:	d7 01       	movw	r26, r14
@@ -3371,37 +2559,19 @@ void blockfill(uint16_t block[]){
     1cc8:	a9 2f       	mov	r26, r25
     1cca:	98 2f       	mov	r25, r24
     1ccc:	87 2f       	mov	r24, r23
-				voice->lpf_state = prev + (int16_t)delta;
     1cce:	b5 01       	movw	r22, r10
     1cd0:	68 0f       	add	r22, r24
     1cd2:	79 1f       	adc	r23, r25
     1cd4:	64 87       	std	Z+12, r22	; 0x0c
     1cd6:	75 87       	std	Z+13, r23	; 0x0d
-//----------------------------inine ASM primitives----------------------------------
-inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
-	uint32_t result;
-	uint8_t neg;
-
-	if (scaled < 0) {
     1cd8:	77 23       	and	r23, r23
     1cda:	2c f4       	brge	.+10     	; 0x1ce6 <blockfill+0x45a>
-		scaled = (uint16_t)(-scaled);
     1cdc:	71 95       	neg	r23
     1cde:	61 95       	neg	r22
     1ce0:	71 09       	sbc	r23, r1
-		neg = 1;
     1ce2:	21 e0       	ldi	r18, 0x01	; 1
     1ce4:	01 c0       	rjmp	.+2      	; 0x1ce8 <blockfill+0x45c>
-		} else {
-		scaled = (uint16_t)scaled;
-		neg = 0;
     1ce6:	20 e0       	ldi	r18, 0x00	; 0
-	// with inline ASM and one output, %1 is scaled, %2 is gain.
-	// %A1 is scaled low byte, %B1 scaled high byte
-	// %A2 is gain low byte, %B2 gain high byte
-	// %A0 %B0 %C0 %D0 are the result bytes, in ascending order by significance
-
-	asm volatile (
     1ce8:	ed 85       	ldd	r30, Y+13	; 0x0d
     1cea:	fe 85       	ldd	r31, Y+14	; 0x0e
     1cec:	6e 9f       	mul	r22, r30
@@ -3432,12 +2602,6 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1d1e:	97 95       	ror	r25
     1d20:	87 95       	ror	r24
     1d22:	11 24       	eor	r1, r1
-	: "=&r"(result) // outputs
-	: "r"((uint16_t)scaled), "r"(gain) // inputs
-	: "r0", "r1", "cc" // clobbers
-	); // 32 cycles total by my count
-
-	return neg ? -(int32_t)result : (int32_t)result;
     1d24:	22 23       	and	r18, r18
     1d26:	39 f0       	breq	.+14     	; 0x1d36 <blockfill+0x4aa>
     1d28:	b0 95       	com	r27
@@ -3447,22 +2611,10 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1d30:	9f 4f       	sbci	r25, 0xFF	; 255
     1d32:	af 4f       	sbci	r26, 0xFF	; 255
     1d34:	bf 4f       	sbci	r27, 0xFF	; 255
-				voice->lpf_state = prev + (int16_t)delta;
-				s = voice->lpf_state;
-			}
-
-			int32_t scaled = fmul16x16_shift10(s, gain);
-			mix += (int32_t)scaled;
     1d36:	48 0e       	add	r4, r24
     1d38:	59 1e       	adc	r5, r25
     1d3a:	6a 1e       	adc	r6, r26
     1d3c:	7b 1e       	adc	r7, r27
-	}
-
-	uint16_t alpha = pgm_read_word(&lpf_alpha[lpf_idx]);
-	for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
-		int32_t mix = 0;
-		for (uint8_t k = 0; k < n_active; ++k) {
     1d3e:	4f 5f       	subi	r20, 0xFF	; 255
     1d40:	04 c0       	rjmp	.+8      	; 0x1d4a <blockfill+0x4be>
     1d42:	40 e0       	ldi	r20, 0x00	; 0
@@ -3473,12 +2625,6 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1d4e:	48 17       	cp	r20, r24
     1d50:	08 f4       	brcc	.+2      	; 0x1d54 <blockfill+0x4c8>
     1d52:	91 ce       	rjmp	.-734    	; 0x1a76 <blockfill+0x1ea>
-			int32_t scaled = fmul16x16_shift10(s, gain);
-			mix += (int32_t)scaled;
-		}
-
-
-        mix = (int32_t)((mix * recip) >> DIV_APPROX_SHIFT); // approximate average
     1d54:	a9 89       	ldd	r26, Y+17	; 0x11
     1d56:	ba 89       	ldd	r27, Y+18	; 0x12
     1d58:	a3 01       	movw	r20, r6
@@ -3490,34 +2636,24 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1d66:	a9 2f       	mov	r26, r25
     1d68:	98 2f       	mov	r25, r24
     1d6a:	87 2f       	mov	r24, r23
-
-		// clamp to 12-bit DAC range
-		int32_t out = mix + DAC_OFFSET; // recenter output
     1d6c:	98 5f       	subi	r25, 0xF8	; 248
     1d6e:	af 4f       	sbci	r26, 0xFF	; 255
     1d70:	bf 4f       	sbci	r27, 0xFF	; 255
-		if (out < 0) {
     1d72:	bb 23       	and	r27, r27
     1d74:	1c f4       	brge	.+6      	; 0x1d7c <blockfill+0x4f0>
-			out = 0;
     1d76:	80 e0       	ldi	r24, 0x00	; 0
     1d78:	90 e0       	ldi	r25, 0x00	; 0
     1d7a:	dc 01       	movw	r26, r24
-		}
-		if (out > 4095) {
     1d7c:	81 15       	cp	r24, r1
     1d7e:	f0 e1       	ldi	r31, 0x10	; 16
     1d80:	9f 07       	cpc	r25, r31
     1d82:	a1 05       	cpc	r26, r1
     1d84:	b1 05       	cpc	r27, r1
     1d86:	24 f0       	brlt	.+8      	; 0x1d90 <blockfill+0x504>
-			out = 4095;
     1d88:	8f ef       	ldi	r24, 0xFF	; 255
     1d8a:	9f e0       	ldi	r25, 0x0F	; 15
     1d8c:	a0 e0       	ldi	r26, 0x00	; 0
     1d8e:	b0 e0       	ldi	r27, 0x00	; 0
-		}
-		block[i] = (uint16_t)out;
     1d90:	f1 01       	movw	r30, r2
     1d92:	ee 0f       	add	r30, r30
     1d94:	ff 1f       	adc	r31, r31
@@ -3527,12 +2663,6 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1d9c:	f3 1f       	adc	r31, r19
     1d9e:	80 83       	st	Z, r24
     1da0:	91 83       	std	Z+1, r25	; 0x01
-			mod_step[k] = voices[active_idx[k]].step;
-		}
-	}
-
-	uint16_t alpha = pgm_read_word(&lpf_alpha[lpf_idx]);
-	for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
     1da2:	3f ef       	ldi	r19, 0xFF	; 255
     1da4:	23 1a       	sub	r2, r19
     1da6:	33 0a       	sbc	r3, r19
@@ -3541,12 +2671,6 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1dac:	31 04       	cpc	r3, r1
     1dae:	49 f2       	breq	.-110    	; 0x1d42 <blockfill+0x4b6>
     1db0:	40 f2       	brcs	.-112    	; 0x1d42 <blockfill+0x4b6>
-		if (out > 4095) {
-			out = 4095;
-		}
-		block[i] = (uint16_t)out;
-	}
-}
     1db2:	62 96       	adiw	r28, 0x12	; 18
     1db4:	cd bf       	out	0x3d, r28	; 61
     1db6:	de bf       	out	0x3e, r29	; 62
@@ -3571,25 +2695,11 @@ inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain){
     1ddc:	08 95       	ret
 
 00001dde <main>:
-inline void init_freq_lut(void);
-inline int32_t fmul16x16_shift10(int16_t scaled, uint16_t gain);
-
-int main(void)
-{
-	init_clk();
     1dde:	0e 94 1e 06 	call	0xc3c	; 0xc3c <init_clk>
-	init_dac();
     1de2:	0e 94 43 06 	call	0xc86	; 0xc86 <init_dac>
-	}
-}
-
-//----------------------------Synthesizer initialization----------------------------------
-inline void init_freq_lut(void){
-	for(int i = 0; i < NOTE_LUT_LEN; i++){
     1de6:	c0 e0       	ldi	r28, 0x00	; 0
     1de8:	d0 e0       	ldi	r29, 0x00	; 0
     1dea:	2e c0       	rjmp	.+92     	; 0x1e48 <main+0x6a>
-		uint16_t f = (uint16_t)pgm_read_word(&note_lut[i]);
     1dec:	fe 01       	movw	r30, r28
     1dee:	ee 0f       	add	r30, r30
     1df0:	ff 1f       	adc	r31, r31
@@ -3597,7 +2707,6 @@ inline void init_freq_lut(void){
     1df4:	f8 4f       	sbci	r31, 0xF8	; 248
     1df6:	45 91       	lpm	r20, Z+
     1df8:	54 91       	lpm	r21, Z
-		freq_lut[i] = (uint32_t)(((uint64_t)f << PHASE_BITS) / FS_REAL); // step = (f * 2^PHASE_BITS) / Fs.
     1dfa:	4a 01       	movw	r8, r20
     1dfc:	24 2f       	mov	r18, r20
     1dfe:	39 2d       	mov	r19, r9
@@ -3634,29 +2743,13 @@ inline void init_freq_lut(void){
     1e40:	31 83       	std	Z+1, r19	; 0x01
     1e42:	42 83       	std	Z+2, r20	; 0x02
     1e44:	53 83       	std	Z+3, r21	; 0x03
-	}
-}
-
-//----------------------------Synthesizer initialization----------------------------------
-inline void init_freq_lut(void){
-	for(int i = 0; i < NOTE_LUT_LEN; i++){
     1e46:	21 96       	adiw	r28, 0x01	; 1
     1e48:	c8 35       	cpi	r28, 0x58	; 88
     1e4a:	d1 05       	cpc	r29, r1
     1e4c:	78 f2       	brcs	.-98     	; 0x1dec <main+0xe>
-int main(void)
-{
-	init_clk();
-	init_dac();
-	init_freq_lut();
-	init_frame();
     1e4e:	0e 94 1d 08 	call	0x103a	; 0x103a <init_frame>
-
-	// initialize voices to OFF
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     1e52:	80 e0       	ldi	r24, 0x00	; 0
     1e54:	18 c0       	rjmp	.+48     	; 0x1e86 <main+0xa8>
-		voices[v].env_state = OFF;
     1e56:	90 e1       	ldi	r25, 0x10	; 16
     1e58:	89 9f       	mul	r24, r25
     1e5a:	f0 01       	movw	r30, r0
@@ -3665,45 +2758,26 @@ int main(void)
     1e60:	fb 4c       	sbci	r31, 0xCB	; 203
     1e62:	94 e0       	ldi	r25, 0x04	; 4
     1e64:	90 83       	st	Z, r25
-		voices[v].note_id = 0;
     1e66:	11 82       	std	Z+1, r1	; 0x01
-		voices[v].phase = 0;
     1e68:	12 82       	std	Z+2, r1	; 0x02
     1e6a:	13 82       	std	Z+3, r1	; 0x03
     1e6c:	14 82       	std	Z+4, r1	; 0x04
     1e6e:	15 82       	std	Z+5, r1	; 0x05
-		voices[v].step = 0;
     1e70:	16 82       	std	Z+6, r1	; 0x06
     1e72:	17 82       	std	Z+7, r1	; 0x07
     1e74:	10 86       	std	Z+8, r1	; 0x08
     1e76:	11 86       	std	Z+9, r1	; 0x09
-		voices[v].gain = 0;
     1e78:	12 86       	std	Z+10, r1	; 0x0a
     1e7a:	13 86       	std	Z+11, r1	; 0x0b
-		voices[v].lpf_state = 0;
     1e7c:	14 86       	std	Z+12, r1	; 0x0c
     1e7e:	15 86       	std	Z+13, r1	; 0x0d
-		voices[v].seen_this_block = 0;
     1e80:	16 86       	std	Z+14, r1	; 0x0e
-		voices[v].hold_ticks = 0;
     1e82:	17 86       	std	Z+15, r1	; 0x0f
-	init_dac();
-	init_freq_lut();
-	init_frame();
-
-	// initialize voices to OFF
-	for (uint8_t v = 0; v < N_VOICES; ++v) {
     1e84:	8f 5f       	subi	r24, 0xFF	; 255
     1e86:	83 30       	cpi	r24, 0x03	; 3
     1e88:	30 f3       	brcs	.-52     	; 0x1e56 <main+0x78>
     1e8a:	40 e0       	ldi	r20, 0x00	; 0
     1e8c:	17 c0       	rjmp	.+46     	; 0x1ebc <main+0xde>
-	}
-
-	// prefill both pfbuff banks with silence
-	for (uint8_t b = 0; b < 2; ++b) {
-		for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
-			pfbuff[b][i] = DAC_OFFSET;
     1e8e:	e4 2f       	mov	r30, r20
     1e90:	f0 e0       	ldi	r31, 0x00	; 0
     1e92:	fe 2f       	mov	r31, r30
@@ -3718,12 +2792,6 @@ int main(void)
     1ea4:	38 e0       	ldi	r19, 0x08	; 8
     1ea6:	20 83       	st	Z, r18
     1ea8:	31 83       	std	Z+1, r19	; 0x01
-		voices[v].hold_ticks = 0;
-	}
-
-	// prefill both pfbuff banks with silence
-	for (uint8_t b = 0; b < 2; ++b) {
-		for (uint16_t i = 0; i < BLOCK_SIZE; ++i) {
     1eaa:	01 96       	adiw	r24, 0x01	; 1
     1eac:	02 c0       	rjmp	.+4      	; 0x1eb2 <main+0xd4>
     1eae:	80 e0       	ldi	r24, 0x00	; 0
@@ -3732,133 +2800,70 @@ int main(void)
     1eb4:	91 05       	cpc	r25, r1
     1eb6:	59 f3       	breq	.-42     	; 0x1e8e <main+0xb0>
     1eb8:	50 f3       	brcs	.-44     	; 0x1e8e <main+0xb0>
-		voices[v].seen_this_block = 0;
-		voices[v].hold_ticks = 0;
-	}
-
-	// prefill both pfbuff banks with silence
-	for (uint8_t b = 0; b < 2; ++b) {
     1eba:	4f 5f       	subi	r20, 0xFF	; 255
     1ebc:	42 30       	cpi	r20, 0x02	; 2
     1ebe:	b8 f3       	brcs	.-18     	; 0x1eae <main+0xd0>
     1ec0:	80 e0       	ldi	r24, 0x00	; 0
     1ec2:	06 c0       	rjmp	.+12     	; 0x1ed0 <main+0xf2>
-		}
-	}
-
-	// Clear key buffer
-	for (uint8_t i = 0; i < KEYLEN; ++i) {
-		keybuff[i] = 0;
     1ec4:	e8 2f       	mov	r30, r24
     1ec6:	f0 e0       	ldi	r31, 0x00	; 0
     1ec8:	ef 5f       	subi	r30, 0xFF	; 255
     1eca:	f6 4c       	sbci	r31, 0xC6	; 198
     1ecc:	10 82       	st	Z, r1
-			pfbuff[b][i] = DAC_OFFSET;
-		}
-	}
-
-	// Clear key buffer
-	for (uint8_t i = 0; i < KEYLEN; ++i) {
     1ece:	8f 5f       	subi	r24, 0xFF	; 255
     1ed0:	89 30       	cpi	r24, 0x09	; 9
     1ed2:	c0 f3       	brcs	.-16     	; 0x1ec4 <main+0xe6>
     1ed4:	80 e0       	ldi	r24, 0x00	; 0
     1ed6:	07 c0       	rjmp	.+14     	; 0x1ee6 <main+0x108>
-		keybuff[i] = 0;
-	}
-
-	// initialize ownership table
-	for (uint8_t i = 0; i < NOTE_LUT_LEN; ++i) {
-		note_owner[i] = -1;
     1ed8:	e8 2f       	mov	r30, r24
     1eda:	f0 e0       	ldi	r31, 0x00	; 0
     1edc:	ee 5b       	subi	r30, 0xBE	; 190
     1ede:	ff 4d       	sbci	r31, 0xDF	; 223
     1ee0:	9f ef       	ldi	r25, 0xFF	; 255
     1ee2:	90 83       	st	Z, r25
-	for (uint8_t i = 0; i < KEYLEN; ++i) {
-		keybuff[i] = 0;
-	}
-
-	// initialize ownership table
-	for (uint8_t i = 0; i < NOTE_LUT_LEN; ++i) {
     1ee4:	8f 5f       	subi	r24, 0xFF	; 255
     1ee6:	88 35       	cpi	r24, 0x58	; 88
     1ee8:	b8 f3       	brcs	.-18     	; 0x1ed8 <main+0xfa>
-		note_owner[i] = -1;
-	}
-
-	tcc0_init(average_period, TC_WGMODE_NORMAL_gc, TC_CLKSEL_DIV1_gc, 1);
     1eea:	21 e0       	ldi	r18, 0x01	; 1
     1eec:	41 e0       	ldi	r20, 0x01	; 1
     1eee:	60 e0       	ldi	r22, 0x00	; 0
     1ef0:	80 e4       	ldi	r24, 0x40	; 64
     1ef2:	96 e0       	ldi	r25, 0x06	; 6
     1ef4:	0e 94 e4 0f 	call	0x1fc8	; 0x1fc8 <tcc0_init>
-	TCC0.INTFLAGS = TC0_CCAIF_bm | TC0_OVFIF_bm; // Clear flags
     1ef8:	81 e1       	ldi	r24, 0x11	; 17
     1efa:	80 93 0c 08 	sts	0x080C, r24	; 0x80080c <__TEXT_REGION_LENGTH__+0x7de80c>
-	init_dma_usart();
     1efe:	0e 94 7e 06 	call	0xcfc	; 0xcfc <init_dma_usart>
-	init_usart();
     1f02:	0e 94 f3 0f 	call	0x1fe6	; 0x1fe6 <init_usart>
-	sei();
     1f06:	78 94       	sei
-	init_dma_dac();
     1f08:	0e 94 53 06 	call	0xca6	; 0xca6 <init_dma_dac>
-
-	// overhead measurements
-	PORTC.DIRSET = PIN0_bm | PIN1_bm | PIN2_bm | PIN3_bm | PIN4_bm;
     1f0c:	e0 e4       	ldi	r30, 0x40	; 64
     1f0e:	f6 e0       	ldi	r31, 0x06	; 6
     1f10:	8f e1       	ldi	r24, 0x1F	; 31
     1f12:	81 83       	std	Z+1, r24	; 0x01
-
-	// Pull Power-Down high
-	PORTC.DIRSET = PIN7_bm;
     1f14:	80 e8       	ldi	r24, 0x80	; 128
     1f16:	81 83       	std	Z+1, r24	; 0x01
-	PORTC.OUTSET = PIN7_bm;
     1f18:	85 83       	std	Z+5, r24	; 0x05
-
-	while (1)
-	{
-		if((DMA.INTFLAGS & DMA_CH2TRNIF_bm)){
     1f1a:	80 91 03 01 	lds	r24, 0x0103	; 0x800103 <__TEXT_REGION_LENGTH__+0x7de103>
     1f1e:	82 ff       	sbrs	r24, 2
     1f20:	05 c0       	rjmp	.+10     	; 0x1f2c <main+0x14e>
-			scope_busy = 0;
     1f22:	10 92 35 20 	sts	0x2035, r1	; 0x802035 <scope_busy>
-			DMA.INTFLAGS = DMA_CH2TRNIF_bm;
     1f26:	84 e0       	ldi	r24, 0x04	; 4
     1f28:	80 93 03 01 	sts	0x0103, r24	; 0x800103 <__TEXT_REGION_LENGTH__+0x7de103>
-		}
-
-		if(fillflag) {
     1f2c:	80 91 3d 20 	lds	r24, 0x203D	; 0x80203d <fillflag>
     1f30:	88 23       	and	r24, r24
     1f32:	71 f1       	breq	.+92     	; 0x1f90 <main+0x1b2>
-			fillflag = 0;
     1f34:	10 92 3d 20 	sts	0x203D, r1	; 0x80203d <fillflag>
-			PORTC.OUTSET = PIN0_bm | PIN3_bm;
     1f38:	c0 e4       	ldi	r28, 0x40	; 64
     1f3a:	d6 e0       	ldi	r29, 0x06	; 6
     1f3c:	89 e0       	ldi	r24, 0x09	; 9
     1f3e:	8d 83       	std	Y+5, r24	; 0x05
-			update_voices_from_keybuff();
     1f40:	0e 94 11 0b 	call	0x1622	; 0x1622 <update_voices_from_keybuff>
-			PORTC.OUTCLR = PIN3_bm;
     1f44:	88 e0       	ldi	r24, 0x08	; 8
     1f46:	8e 83       	std	Y+6, r24	; 0x06
-
-			lock_cbuff = cbuff;
     1f48:	80 91 3e 20 	lds	r24, 0x203E	; 0x80203e <cbuff>
     1f4c:	80 93 32 20 	sts	0x2032, r24	; 0x802032 <__data_end>
-			PORTC.OUTSET = PIN2_bm;
     1f50:	14 e0       	ldi	r17, 0x04	; 4
     1f52:	1d 83       	std	Y+5, r17	; 0x05
-			blockfill(pfbuff[1 ^ lock_cbuff]); // fill next half
     1f54:	90 91 32 20 	lds	r25, 0x2032	; 0x802032 <__data_end>
     1f58:	81 e0       	ldi	r24, 0x01	; 1
     1f5a:	89 27       	eor	r24, r25
@@ -3869,83 +2874,54 @@ int main(void)
     1f64:	8f 5f       	subi	r24, 0xFF	; 255
     1f66:	9a 4c       	sbci	r25, 0xCA	; 202
     1f68:	0e 94 46 0c 	call	0x188c	; 0x188c <blockfill>
-			PORTC.OUTCLR = PIN2_bm;
     1f6c:	1e 83       	std	Y+6, r17	; 0x06
-			if (++scope_block_counter >= SCOPE_FRAME_SKIP) {
     1f6e:	80 91 33 20 	lds	r24, 0x2033	; 0x802033 <scope_block_counter>
     1f72:	8f 5f       	subi	r24, 0xFF	; 255
     1f74:	80 93 33 20 	sts	0x2033, r24	; 0x802033 <scope_block_counter>
     1f78:	84 30       	cpi	r24, 0x04	; 4
     1f7a:	38 f0       	brcs	.+14     	; 0x1f8a <main+0x1ac>
-				scope_block_counter = 0;
     1f7c:	10 92 33 20 	sts	0x2033, r1	; 0x802033 <scope_block_counter>
-				PORTC.OUTSET = PIN4_bm;
     1f80:	10 e1       	ldi	r17, 0x10	; 16
     1f82:	1d 83       	std	Y+5, r17	; 0x05
-				scope_update_wave();   // always build/publish newest frame
     1f84:	0e 94 31 08 	call	0x1062	; 0x1062 <scope_update_wave>
-				PORTC.OUTCLR = PIN4_bm;
     1f88:	1e 83       	std	Y+6, r17	; 0x06
-			}
-			PORTC.OUTCLR = PIN0_bm;
     1f8a:	81 e0       	ldi	r24, 0x01	; 1
     1f8c:	80 93 46 06 	sts	0x0646, r24	; 0x800646 <__TEXT_REGION_LENGTH__+0x7de646>
-		}
-
-		if (scope_ready && !scope_busy) {
     1f90:	80 91 34 20 	lds	r24, 0x2034	; 0x802034 <scope_ready>
     1f94:	88 23       	and	r24, r24
     1f96:	09 f2       	breq	.-126    	; 0x1f1a <main+0x13c>
     1f98:	80 91 35 20 	lds	r24, 0x2035	; 0x802035 <scope_busy>
     1f9c:	81 11       	cpse	r24, r1
     1f9e:	bd cf       	rjmp	.-134    	; 0x1f1a <main+0x13c>
-			scope_busy = 1;
     1fa0:	81 e0       	ldi	r24, 0x01	; 1
     1fa2:	80 93 35 20 	sts	0x2035, r24	; 0x802035 <scope_busy>
-			scope_ready = 0;
     1fa6:	10 92 34 20 	sts	0x2034, r1	; 0x802034 <scope_ready>
-
-			DMA.INTFLAGS = DMA_CH2TRNIF_bm;
     1faa:	c0 e0       	ldi	r28, 0x00	; 0
     1fac:	d1 e0       	ldi	r29, 0x01	; 1
     1fae:	84 e0       	ldi	r24, 0x04	; 4
     1fb0:	8b 83       	std	Y+3, r24	; 0x03
-			DMA.CH2.TRFCNT = SCOPE_FRAME_BYTES;
     1fb2:	8a e2       	ldi	r24, 0x2A	; 42
     1fb4:	99 e0       	ldi	r25, 0x09	; 9
     1fb6:	8c ab       	std	Y+52, r24	; 0x34
     1fb8:	9d ab       	std	Y+53, r25	; 0x35
-			set_scope_src_addr(scope_frame_tx);
     1fba:	80 91 41 20 	lds	r24, 0x2041	; 0x802041 <scope_frame_tx>
     1fbe:	0e 94 bf 06 	call	0xd7e	; 0xd7e <set_scope_src_addr>
-			DMA.CH2.CTRLA = DMA_CH_ENABLE_bm | DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm;
     1fc2:	84 e8       	ldi	r24, 0x84	; 132
     1fc4:	88 ab       	std	Y+48, r24	; 0x30
     1fc6:	a9 cf       	rjmp	.-174    	; 0x1f1a <main+0x13c>
 
 00001fc8 <tcc0_init>:
-#include <avr/io.h>
-#include <stdint.h>
-#include "timer.h"
-
-void tcc0_init(uint16_t period, uint8_t wgmode, uint8_t tc_clksel, uint8_t is_event_source){
-	TCC0.CTRLFSET = TC_CMD_RESET_gc; // reset timer before configuration
     1fc8:	e0 e0       	ldi	r30, 0x00	; 0
     1fca:	f8 e0       	ldi	r31, 0x08	; 8
     1fcc:	3c e0       	ldi	r19, 0x0C	; 12
     1fce:	31 87       	std	Z+9, r19	; 0x09
-	TCC0.PER = period - 1;
     1fd0:	01 97       	sbiw	r24, 0x01	; 1
     1fd2:	86 a3       	std	Z+38, r24	; 0x26
     1fd4:	97 a3       	std	Z+39, r25	; 0x27
-	TCC0.CTRLB = wgmode;
     1fd6:	61 83       	std	Z+1, r22	; 0x01
-	TCC0.CTRLA = tc_clksel;
     1fd8:	40 83       	st	Z, r20
-	if(is_event_source){
     1fda:	22 23       	and	r18, r18
     1fdc:	19 f0       	breq	.+6      	; 0x1fe4 <tcc0_init+0x1c>
-		EVSYS.CH0MUX = EVSYS_CHMUX_TCC0_OVF_gc;
     1fde:	80 ec       	ldi	r24, 0xC0	; 192
     1fe0:	80 93 80 01 	sts	0x0180, r24	; 0x800180 <__TEXT_REGION_LENGTH__+0x7de180>
     1fe4:	08 95       	ret
