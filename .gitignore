@@ -20,3 +20,20 @@ synth/Debug/synth.srec
 synth/Debug/synthesizer.o
 synth/.vs/synth/v14/.atsuo
 /synth/Debug
+
+# Build output
+synth/Debug/
+*.o
+*.d
+*.elf
+*.hex
+*.map
+*.lss
+*.srec
+*.eep
+# IDE state
+.vs/
+*.atsuo
+*.suo
+# Archives
+*.zip
