@@ -1,5 +1,7 @@
 # XMEGA Polyphonic Wavetable Synthesizer
 
+**▶ Demo:** [Audio Synthesizer for the ATxmega128A1U](https://youtu.be/gx8KwXzQoUY)
+
 A real-time 3-voice wavetable synthesizer on a bare-metal ATxmega128A1U (8-bit AVR, 32 MHz),
 playable from a PC keyboard over serial, with a live ASCII oscilloscope rendered back to the
 terminal. Grew out of the EEL 4744 course platform and was extended into a standalone
